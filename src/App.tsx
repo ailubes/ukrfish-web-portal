@@ -11,6 +11,7 @@ import ArticlePage from "./pages/ArticlePage";
 import LoginPage from "./pages/LoginPage";
 import AboutPage from "./pages/AboutPage";
 import ContactsPage from "./pages/ContactsPage";
+import CMSPage from "./pages/CMSPage";
 import NotFound from "./pages/NotFound";
 
 // Create a client
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/login" element={<LoginPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/admin" element={<CMSPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
