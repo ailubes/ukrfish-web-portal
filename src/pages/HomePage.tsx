@@ -18,7 +18,7 @@ const HomePage = () => {
       <main className="flex-grow">
         {/* Hero Section */}
         <HeroSection
-          title="ГС "Риба України""
+          title={'ГС "Риба України"'}
           subtitle="Об'єднуємо професіоналів рибної галузі для сталого розвитку та вирішення спільних завдань"
           ctaText="Приєднатися"
           ctaLink="/members"

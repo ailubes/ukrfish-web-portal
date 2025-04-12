@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -20,7 +19,7 @@ const MembersPage = () => {
       <main className="flex-grow">
         {/* Hero Section */}
         <HeroSection
-          title="Членство в ГС "Риба України""
+          title={'Членство в ГС "Риба України"'}
           subtitle="Приєднуйтесь до найбільшого об'єднання професіоналів рибної галузі в Україні та отримайте доступ до унікальних можливостей для розвитку вашого бізнесу"
         />
 
