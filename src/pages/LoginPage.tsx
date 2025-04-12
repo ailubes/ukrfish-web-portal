@@ -1,21 +1,40 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Eye, EyeOff } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 const LoginPage = () => {
-  const [email, setEmail] = useState("");
+  const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(true);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, we would handle authentication here
-    console.log("Form submitted:", { email, password, remember });
+    
+    // For the admin CMS access
+    if (emailOrUsername === "admin" && password === "password") {
+      toast({
+        title: "Успішний вхід",
+        description: "Ви успішно увійшли як адміністратор."
+      });
+      navigate("/admin"); // Redirect to admin page
+      return;
+    }
+    
+    // Regular user authentication would happen here
+    console.log("Form submitted:", { emailOrUsername, password, remember });
+    toast({
+      title: "Інформація",
+      description: "Система реєстрації та входу знаходиться в процесі розробки."
+    });
   };
 
   return (
@@ -40,18 +59,18 @@ const LoginPage = () => {
               <form onSubmit={handleSubmit}>
                 <div className="mb-4">
                   <label
-                    htmlFor="email"
+                    htmlFor="emailOrUsername"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Email
+                    {isLoginMode ? "Email або Логін" : "Email"}
                   </label>
                   <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    type={isLoginMode ? "text" : "email"}
+                    id="emailOrUsername"
+                    value={emailOrUsername}
+                    onChange={(e) => setEmailOrUsername(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-primary"
-                    placeholder="ваш@email.com"
+                    placeholder={isLoginMode ? "ваш@email.com або логін" : "ваш@email.com"}
                     required
                   />
                 </div>
@@ -115,12 +134,12 @@ const LoginPage = () => {
                   </div>
                 )}
 
-                <button
+                <Button
                   type="submit"
                   className="w-full bg-blue-primary text-white py-2 px-4 rounded-md hover:bg-blue-800 transition-colors"
                 >
                   {isLoginMode ? "Увійти" : "Зареєструватися"}
-                </button>
+                </Button>
               </form>
 
               <div className="mt-6 text-center">
@@ -136,6 +155,14 @@ const LoginPage = () => {
                   </button>
                 </p>
               </div>
+              
+              {isLoginMode && (
+                <div className="mt-4 text-center">
+                  <p className="text-xs text-gray-500">
+                    Для входу в панель адміністратора використовуйте: логін <span className="font-semibold">admin</span> і пароль <span className="font-semibold">password</span>
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
