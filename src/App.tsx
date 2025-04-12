@@ -9,6 +9,7 @@ import NewsPage from "./pages/NewsPage";
 import MembersPage from "./pages/MembersPage";
 import ArticlePage from "./pages/ArticlePage";
 import LoginPage from "./pages/LoginPage";
+import AboutPage from "./pages/AboutPage";
 import NotFound from "./pages/NotFound";
 
 // Create a client
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/members" element={<MembersPage />} />
           <Route path="/article/:id" element={<ArticlePage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/about" element={<AboutPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
