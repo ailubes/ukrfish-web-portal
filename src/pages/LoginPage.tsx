@@ -21,6 +21,9 @@ const LoginPage = () => {
     
     // For the admin CMS access
     if (emailOrUsername === "admin" && password === "password") {
+      // Set admin status in localStorage
+      localStorage.setItem('isAdmin', 'true');
+      
       toast({
         title: "Успішний вхід",
         description: "Ви успішно увійшли як адміністратор."
@@ -29,12 +32,29 @@ const LoginPage = () => {
       return;
     }
     
-    // Regular user authentication would happen here
-    console.log("Form submitted:", { emailOrUsername, password, remember });
-    toast({
-      title: "Інформація",
-      description: "Система реєстрації та входу знаходиться в процесі розробки."
-    });
+    // Check if user exists in localStorage
+    const members = JSON.parse(localStorage.getItem('members') || '[]');
+    const user = members.find((m: any) => 
+      m.email === emailOrUsername || m.username === emailOrUsername
+    );
+    
+    if (user) {
+      // In a real app, we would properly validate the password
+      // For demo purposes, we'll just accept any password
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      
+      toast({
+        title: "Успішний вхід",
+        description: "Ви успішно увійшли в систему."
+      });
+      navigate("/member-profile");
+    } else {
+      toast({
+        title: "Помилка входу",
+        description: "Користувача не знайдено. Спробуйте зареєструватися.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -147,12 +167,12 @@ const LoginPage = () => {
                   {isLoginMode
                     ? "Не маєте облікового запису?"
                     : "Вже маєте обліковий запис?"}{" "}
-                  <button
-                    onClick={() => setIsLoginMode(!isLoginMode)}
+                  <Link
+                    to="/register"
                     className="text-blue-primary hover:text-blue-800 font-medium"
                   >
-                    {isLoginMode ? "Зареєструватися" : "Увійти"}
-                  </button>
+                    Зареєструватися
+                  </Link>
                 </p>
               </div>
               

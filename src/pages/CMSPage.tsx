@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ArticleEditor from "../components/cms/ArticleEditor";
 import ArticlesList from "../components/cms/ArticlesList";
 import { useToast } from "@/hooks/use-toast";
+import { Users } from "lucide-react";
 
 const CMSPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -22,6 +23,8 @@ const CMSPage = () => {
     // In a real app, you would validate against a backend
     if (username === "admin" && password === "password") {
       setIsAuthenticated(true);
+      // Set admin status in localStorage for other admin pages
+      localStorage.setItem('isAdmin', 'true');
       toast({
         title: "Успішний вхід",
         description: "Ви успішно увійшли в систему управління контентом.",
@@ -39,6 +42,8 @@ const CMSPage = () => {
     setIsAuthenticated(false);
     setUsername("");
     setPassword("");
+    // Clear admin status
+    localStorage.removeItem('isAdmin');
     toast({
       title: "Вихід з системи",
       description: "Ви вийшли з системи управління контентом.",
@@ -95,6 +100,23 @@ const CMSPage = () => {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">Панель управління</h2>
               <Button variant="outline" onClick={handleLogout}>Вийти</Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div 
+                className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                onClick={() => navigate("/admin/members")}
+              >
+                <div className="flex items-center">
+                  <div className="bg-blue-100 p-3 rounded-full mr-4">
+                    <Users size={24} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-lg">Управління учасниками</h3>
+                    <p className="text-sm text-gray-500">Перегляд та керування обліковими записами учасників</p>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <Tabs defaultValue="articles">
