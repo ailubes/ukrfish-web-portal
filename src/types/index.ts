@@ -19,6 +19,9 @@ export interface Member {
   membershipType: 'Free' | 'Standard' | 'Premium';
   joinDate: Date;
   website?: string;
+  email?: string;
+  phone?: string;
+  username?: string;
 }
 
 export interface MembershipPlan {
