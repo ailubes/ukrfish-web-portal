@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -16,8 +15,8 @@ import {
 } from "@/components/ui/select";
 import { ImagePlus, Save, ArrowLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { uploadImageToSupabase } from "@/utils/imageUtils";
 
-// For HTML editor preview
 const HtmlPreview = ({ html }: { html: string }) => {
   return (
     <div 
@@ -47,6 +46,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   });
   const [tagsInput, setTagsInput] = useState("");
   const [previewMode, setPreviewMode] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const { toast } = useToast();
   const isEditing = !!existingArticle?.id;
 
@@ -102,11 +102,31 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     if (onSave) {
       onSave(completeArticle);
     } else {
-      // In a real app, we would post this to an API
       toast({
         title: isEditing ? "Новину оновлено" : "Новину створено",
         description: "Зміни успішно збережено.",
       });
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const uploadedImageUrl = await uploadImageToSupabase(file);
+        setArticle(prev => ({ ...prev, imageUrl: uploadedImageUrl }));
+        setImageFile(file);
+        toast({
+          title: "Зображення завантажено",
+          description: "Зображення успішно додано до статті.",
+        });
+      } catch (error) {
+        toast({
+          title: "Помилка завантаження",
+          description: "Не вдалося завантажити зображення.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -223,20 +243,37 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <Label htmlFor="imageUrl">URL зображення</Label>
-            <div className="relative">
+            <Label htmlFor="imageUrl">URL зображення або файл</Label>
+            <div className="relative flex items-center">
               <Input
                 id="imageUrl"
                 name="imageUrl"
                 value={article.imageUrl || ""}
-                onChange={handleChange}
+                onChange={(e) => setArticle(prev => ({ ...prev, imageUrl: e.target.value }))}
                 placeholder="https://example.com/image.jpg"
                 className="pr-10"
               />
-              <ImagePlus className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                id="imageUpload"
+                onChange={handleImageUpload}
+              />
+              <label 
+                htmlFor="imageUpload" 
+                className="absolute right-3 cursor-pointer"
+              >
+                <ImagePlus className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+              </label>
             </div>
+            {imageFile && (
+              <p className="text-xs text-green-600 mt-1">
+                Файл: {imageFile.name} (Завантажено)
+              </p>
+            )}
             <p className="text-xs text-gray-500 mt-1">
-              Додайте URL зображення для статті
+              Введіть URL або завантажте зображення
             </p>
           </div>
 
