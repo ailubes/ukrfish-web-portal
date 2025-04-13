@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ArticleEditor from "../components/cms/ArticleEditor";
 import ArticlesList from "../components/cms/ArticlesList";
 import { useToast } from "@/hooks/use-toast";
-import { Users } from "lucide-react";
+import { Users, LayoutDashboard } from "lucide-react";
 
 const CMSPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -48,6 +48,10 @@ const CMSPage = () => {
       title: "Вихід з системи",
       description: "Ви вийшли з системи управління контентом.",
     });
+  };
+
+  const navigateToDashboard = () => {
+    navigate("/admin/dashboard");
   };
 
   return (
@@ -114,6 +118,21 @@ const CMSPage = () => {
                   <div>
                     <h3 className="font-medium text-lg">Управління учасниками</h3>
                     <p className="text-sm text-gray-500">Перегляд та керування обліковими записами учасників</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div 
+                className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                onClick={navigateToDashboard}
+              >
+                <div className="flex items-center">
+                  <div className="bg-purple-100 p-3 rounded-full mr-4">
+                    <LayoutDashboard size={24} className="text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-lg">Розширена панель управління</h3>
+                    <p className="text-sm text-gray-500">Повний доступ до всіх функцій системи управління</p>
                   </div>
                 </div>
               </div>

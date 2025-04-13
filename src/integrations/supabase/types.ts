@@ -9,7 +9,158 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      members: {
+        Row: {
+          description: string | null
+          email: string | null
+          id: string
+          join_date: string | null
+          logo: string | null
+          membership_type: string
+          name: string
+          phone: string | null
+          production_amount: number | null
+          production_type: string | null
+          user_id: string | null
+          username: string | null
+          website: string | null
+        }
+        Insert: {
+          description?: string | null
+          email?: string | null
+          id?: string
+          join_date?: string | null
+          logo?: string | null
+          membership_type?: string
+          name: string
+          phone?: string | null
+          production_amount?: number | null
+          production_type?: string | null
+          user_id?: string | null
+          username?: string | null
+          website?: string | null
+        }
+        Update: {
+          description?: string | null
+          email?: string | null
+          id?: string
+          join_date?: string | null
+          logo?: string | null
+          membership_type?: string
+          name?: string
+          phone?: string | null
+          production_amount?: number | null
+          production_type?: string | null
+          user_id?: string | null
+          username?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      membership_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          member_id: string
+          notes: string | null
+          payment_date: string
+          payment_status: string
+          payment_type: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          member_id: string
+          notes?: string | null
+          payment_date?: string
+          payment_status?: string
+          payment_type: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          member_id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_status?: string
+          payment_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_payments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      membership_plans: {
+        Row: {
+          duration: string
+          features: string[] | null
+          id: string
+          is_popular: boolean | null
+          name: string
+          price: number
+        }
+        Insert: {
+          duration: string
+          features?: string[] | null
+          id?: string
+          is_popular?: boolean | null
+          name: string
+          price: number
+        }
+        Update: {
+          duration?: string
+          features?: string[] | null
+          id?: string
+          is_popular?: boolean | null
+          name?: string
+          price?: number
+        }
+        Relationships: []
+      }
+      news_articles: {
+        Row: {
+          author: string | null
+          category: string | null
+          content: string
+          id: string
+          image_url: string | null
+          publish_date: string | null
+          summary: string
+          tags: string[] | null
+          title: string
+        }
+        Insert: {
+          author?: string | null
+          category?: string | null
+          content: string
+          id?: string
+          image_url?: string | null
+          publish_date?: string | null
+          summary: string
+          tags?: string[] | null
+          title: string
+        }
+        Update: {
+          author?: string | null
+          category?: string | null
+          content?: string
+          id?: string
+          image_url?: string | null
+          publish_date?: string | null
+          summary?: string
+          tags?: string[] | null
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

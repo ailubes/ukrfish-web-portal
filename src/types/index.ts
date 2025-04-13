@@ -22,6 +22,8 @@ export interface Member {
   email?: string;
   phone?: string;
   username?: string;
+  productionAmount?: number;
+  productionType?: string;
 }
 
 export interface MembershipPlan {
@@ -31,4 +33,15 @@ export interface MembershipPlan {
   duration: string;
   features: string[];
   isPopular?: boolean;
+}
+
+export interface MembershipPayment {
+  id: string;
+  member_id: string;
+  amount: number;
+  payment_date: Date;
+  payment_type: string;
+  payment_status: 'paid' | 'pending';
+  notes?: string;
+  created_at: Date;
 }

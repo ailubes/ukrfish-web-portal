@@ -12,12 +12,17 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, Plus } from "lucide-react";
 import ArticleEditor from "./ArticleEditor";
 import { format } from "date-fns";
 import { uk } from "date-fns/locale";
 
-const ArticlesList = () => {
+type ArticlesListProps = {
+  onEdit?: (article: NewsArticle) => void;
+  onNew?: () => void;
+};
+
+const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const { toast } = useToast();
@@ -39,7 +44,11 @@ const ArticlesList = () => {
   };
 
   const handleEditArticle = (article: NewsArticle) => {
-    setEditingArticle(article);
+    if (onEdit) {
+      onEdit(article);
+    } else {
+      setEditingArticle(article);
+    }
   };
 
   const handleSaveEdit = (updatedArticle: NewsArticle) => {
@@ -58,7 +67,15 @@ const ArticlesList = () => {
     setEditingArticle(null);
   };
 
-  if (editingArticle) {
+  const handleAddNew = () => {
+    if (onNew) {
+      onNew();
+    } else {
+      setEditingArticle({} as NewsArticle);
+    }
+  };
+
+  if (editingArticle && !onEdit) {
     return (
       <div>
         <div className="mb-4">
@@ -66,14 +83,20 @@ const ArticlesList = () => {
             Повернутися до списку
           </Button>
         </div>
-        <ArticleEditor existingArticle={editingArticle} onSave={handleSaveEdit} />
+        <ArticleEditor existingArticle={editingArticle} onSave={handleSaveEdit} onCancel={handleCancelEdit} />
       </div>
     );
   }
 
   return (
     <div>
-      <h3 className="text-lg font-medium mb-4">Управління новинами</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-medium">Управління новинами</h3>
+        <Button onClick={handleAddNew}>
+          <Plus className="h-4 w-4 mr-1" /> 
+          Створити новину
+        </Button>
+      </div>
       
       {articles.length === 0 ? (
         <p className="text-gray-500">Новин не знайдено.</p>

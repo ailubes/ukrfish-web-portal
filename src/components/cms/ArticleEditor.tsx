@@ -1,239 +1,296 @@
 
 import { useState, useEffect } from "react";
-import { NewsArticle } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { NewsArticle } from "@/types";
+import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { v4 as uuidv4 } from "uuid";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ImagePlus, Save, ArrowLeft } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// For HTML editor preview
+const HtmlPreview = ({ html }: { html: string }) => {
+  return (
+    <div 
+      className="p-4 border rounded-md bg-white min-h-[200px] max-h-[600px] overflow-y-auto"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+};
 
 interface ArticleEditorProps {
   existingArticle?: NewsArticle;
   onSave?: (article: NewsArticle) => void;
+  onCancel?: () => void;
 }
 
-const ArticleEditor = ({ existingArticle, onSave }: ArticleEditorProps) => {
-  const isEditing = !!existingArticle;
-  const { toast } = useToast();
-  
-  const [formData, setFormData] = useState<Partial<NewsArticle>>({
+const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps) => {
+  const [article, setArticle] = useState<Partial<NewsArticle>>({
+    id: "",
     title: "",
-    summary: "",
     content: "",
+    summary: "",
     imageUrl: "",
+    publishDate: new Date(),
     category: "",
+    author: "",
     tags: [],
-    author: ""
   });
-  
-  const [tagInput, setTagInput] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const [previewMode, setPreviewMode] = useState(false);
+  const { toast } = useToast();
+  const isEditing = !!existingArticle?.id;
 
   useEffect(() => {
     if (existingArticle) {
-      setFormData({
-        ...existingArticle,
-        tags: [...existingArticle.tags], // Create a copy of the array
-      });
+      setArticle(existingArticle);
+      setTagsInput(existingArticle.tags?.join(", ") || "");
     }
   }, [existingArticle]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setArticle((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleAddTag = () => {
-    if (tagInput.trim() && !formData.tags?.includes(tagInput.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...(prev.tags || []), tagInput.trim()]
-      }));
-      setTagInput("");
-    }
+  const handleSelectChange = (name: string, value: string) => {
+    setArticle((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: (prev.tags || []).filter(tag => tag !== tagToRemove)
-    }));
+  const formatTags = (tagsStr: string): string[] => {
+    return tagsStr
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate form
-    if (!formData.title || !formData.summary || !formData.content || !formData.category) {
+
+    if (!article.title || !article.content || !article.summary) {
       toast({
         title: "Помилка",
-        description: "Будь ласка, заповніть всі обов'язкові поля",
-        variant: "destructive"
+        description: "Будь ласка, заповніть всі обов'язкові поля.",
+        variant: "destructive",
       });
       return;
     }
-    
-    // Create new article or update existing
-    const articleToSave: NewsArticle = {
-      id: existingArticle?.id || uuidv4(),
-      title: formData.title || "",
-      summary: formData.summary || "",
-      content: formData.content || "",
-      imageUrl: formData.imageUrl || "https://via.placeholder.com/800x400",
-      publishDate: existingArticle?.publishDate || new Date(),
-      category: formData.category || "",
-      author: formData.author || "Адміністратор",
-      tags: formData.tags || []
+
+    const formattedTags = formatTags(tagsInput);
+
+    const completeArticle: NewsArticle = {
+      id: article.id || uuidv4(),
+      title: article.title || "",
+      content: article.content || "",
+      summary: article.summary || "",
+      imageUrl: article.imageUrl || "",
+      publishDate: article.publishDate || new Date(),
+      category: article.category || "Загальні новини",
+      author: article.author || "Адміністратор",
+      tags: formattedTags,
     };
-    
+
     if (onSave) {
-      onSave(articleToSave);
+      onSave(completeArticle);
     } else {
-      // In a real app, this would be an API call to save the article
-      console.log("Article saved:", articleToSave);
-      
+      // In a real app, we would post this to an API
       toast({
-        title: "Новину збережено",
-        description: "Вашу новину успішно збережено.",
-      });
-      
-      // Reset form after submission
-      setFormData({
-        title: "",
-        summary: "",
-        content: "",
-        imageUrl: "",
-        category: "",
-        tags: [],
-        author: ""
+        title: isEditing ? "Новину оновлено" : "Новину створено",
+        description: "Зміни успішно збережено.",
       });
     }
   };
 
   return (
     <div>
-      <h3 className="text-lg font-medium mb-4">
-        {isEditing ? "Редагувати новину" : "Створити нову новину"}
-      </h3>
-      
+      {onCancel && (
+        <div className="flex items-center gap-2 mb-6">
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            <ArrowLeft size={16} className="mr-1" />
+            Назад
+          </Button>
+          <h2 className="text-xl font-semibold">
+            {isEditing ? "Редагування новини" : "Створення нової новини"}
+          </h2>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <Label htmlFor="title">Заголовок *</Label>
             <Input
               id="title"
               name="title"
-              value={formData.title || ""}
+              value={article.title || ""}
               onChange={handleChange}
               placeholder="Введіть заголовок новини"
               required
             />
           </div>
-          
+
           <div>
-            <Label htmlFor="summary">Короткий опис *</Label>
-            <Textarea
-              id="summary"
-              name="summary"
-              value={formData.summary || ""}
-              onChange={handleChange}
-              placeholder="Короткий опис новини"
-              required
-            />
+            <Label htmlFor="category">Категорія</Label>
+            <Select
+              value={article.category || ""}
+              onValueChange={(value) => handleSelectChange("category", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Виберіть категорію" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Загальні новини">Загальні новини</SelectItem>
+                <SelectItem value="Новини галузі">Новини галузі</SelectItem>
+                <SelectItem value="Законодавство">Законодавство</SelectItem>
+                <SelectItem value="Міжнародна співпраця">Міжнародна співпраця</SelectItem>
+                <SelectItem value="Події та заходи">Події та заходи</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          
-          <div>
-            <Label htmlFor="content">Повний текст *</Label>
-            <Textarea
-              id="content"
-              name="content"
-              value={formData.content || ""}
-              onChange={handleChange}
-              placeholder="Повний текст новини"
-              className="min-h-[200px]"
-              required
-            />
-          </div>
-          
+        </div>
+
+        <div>
+          <Label htmlFor="summary">Короткий опис *</Label>
+          <Textarea
+            id="summary"
+            name="summary"
+            value={article.summary || ""}
+            onChange={handleChange}
+            placeholder="Введіть короткий опис статті (анонс)"
+            required
+            rows={2}
+          />
+        </div>
+        
+        <div>
+          <Label htmlFor="content">Зміст статті *</Label>
+          <Tabs defaultValue="editor">
+            <TabsList className="mb-2">
+              <TabsTrigger value="editor">Редактор</TabsTrigger>
+              <TabsTrigger value="html">HTML</TabsTrigger>
+              <TabsTrigger value="preview">Попередній перегляд</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="editor">
+              <Textarea
+                id="content"
+                name="content"
+                value={article.content || ""}
+                onChange={handleChange}
+                placeholder="Введіть текст статті"
+                required
+                rows={15}
+                className="font-mono"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Використовуйте звичайний текст або HTML-теги для форматування.
+              </p>
+            </TabsContent>
+            
+            <TabsContent value="html">
+              <Textarea
+                id="content"
+                name="content"
+                value={article.content || ""}
+                onChange={handleChange}
+                placeholder="<p>Введіть HTML-код статті</p>"
+                required
+                rows={15}
+                className="font-mono"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Редагування вмісту в HTML-форматі. Використовуйте теги p, h1-h6, ul, ol, li, strong, em, a, img тощо.
+              </p>
+            </TabsContent>
+            
+            <TabsContent value="preview">
+              <HtmlPreview html={article.content || ""} />
+              <p className="text-xs text-gray-500 mt-1">
+                Попередній перегляд відформатованого вмісту.
+              </p>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <Label htmlFor="imageUrl">URL зображення</Label>
-            <Input
-              id="imageUrl"
-              name="imageUrl"
-              value={formData.imageUrl || ""}
-              onChange={handleChange}
-              placeholder="https://example.com/image.jpg"
-            />
+            <div className="relative">
+              <Input
+                id="imageUrl"
+                name="imageUrl"
+                value={article.imageUrl || ""}
+                onChange={handleChange}
+                placeholder="https://example.com/image.jpg"
+                className="pr-10"
+              />
+              <ImagePlus className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Додайте URL зображення для статті
+            </p>
           </div>
-          
+
           <div>
-            <Label htmlFor="category">Категорія *</Label>
+            <Label htmlFor="tags">Теги</Label>
             <Input
-              id="category"
-              name="category"
-              value={formData.category || ""}
-              onChange={handleChange}
-              placeholder="Категорія новини"
-              required
+              id="tags"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="рибальство, аквакультура, законодавство"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Вводьте теги через кому
+            </p>
           </div>
-          
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <Label htmlFor="author">Автор</Label>
             <Input
               id="author"
               name="author"
-              value={formData.author || ""}
+              value={article.author || ""}
               onChange={handleChange}
               placeholder="Ім'я автора"
             />
           </div>
-          
+
           <div>
-            <Label htmlFor="tags">Теги</Label>
-            <div className="flex">
-              <Input
-                id="tags"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                placeholder="Додайте тег"
-                className="flex-1"
-              />
-              <Button 
-                type="button" 
-                onClick={handleAddTag}
-                className="ml-2"
-                variant="outline"
-              >
-                Додати
-              </Button>
-            </div>
-            
-            {formData.tags && formData.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {formData.tags.map(tag => (
-                  <span 
-                    key={tag} 
-                    className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="ml-1 text-blue-800 hover:text-blue-600"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
+            <Label htmlFor="publishDate">Дата публікації</Label>
+            <Input
+              id="publishDate"
+              name="publishDate"
+              type="date"
+              value={
+                article.publishDate
+                  ? new Date(article.publishDate).toISOString().split("T")[0]
+                  : new Date().toISOString().split("T")[0]
+              }
+              onChange={handleChange}
+            />
           </div>
         </div>
-        
-        <div className="flex justify-end space-x-2">
+
+        <div className="flex justify-end gap-2">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Скасувати
+            </Button>
+          )}
           <Button type="submit">
-            {isEditing ? "Оновити новину" : "Опублікувати новину"}
+            <Save className="mr-2 h-4 w-4" />
+            {isEditing ? "Оновити статтю" : "Опублікувати статтю"}
           </Button>
         </div>
       </form>
