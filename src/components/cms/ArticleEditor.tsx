@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
 import { v4 as uuidv4 } from "uuid";
@@ -13,14 +14,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ImagePlus, Save, ArrowLeft } from "lucide-react";
+import {
+  ImagePlus,
+  Save,
+  ArrowLeft,
+  Bold,
+  Italic,
+  Underline,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Link,
+  Unlink,
+  Video,
+  Code,
+  Undo,
+  Redo,
+  Trash2,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { uploadImageToSupabase } from "@/utils/imageUtils";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const HtmlPreview = ({ html }: { html: string }) => {
   return (
     <div 
-      className="p-4 border rounded-md bg-white min-h-[200px] max-h-[600px] overflow-y-auto"
+      className="p-4 border rounded-md bg-white min-h-[400px] max-h-[800px] overflow-y-auto"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -45,10 +71,11 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     tags: [],
   });
   const [tagsInput, setTagsInput] = useState("");
-  const [previewMode, setPreviewMode] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const { toast } = useToast();
   const isEditing = !!existingArticle?.id;
+  const editorRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (existingArticle) {
@@ -114,7 +141,35 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     if (file) {
       try {
         const uploadedImageUrl = await uploadImageToSupabase(file);
-        setArticle(prev => ({ ...prev, imageUrl: uploadedImageUrl }));
+        // Insert the image at the current cursor position in the editor
+        if (editorRef.current) {
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const imgElement = document.createElement('img');
+            imgElement.src = uploadedImageUrl;
+            imgElement.alt = file.name;
+            imgElement.style.maxWidth = '100%';
+            imgElement.className = 'my-2';
+            
+            range.insertNode(imgElement);
+            range.setStartAfter(imgElement);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            // Update the content
+            if (editorRef.current.innerHTML) {
+              setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
+            }
+          } else {
+            // If no selection, append to the end
+            const imgHtml = `<img src="${uploadedImageUrl}" alt="${file.name}" style="max-width: 100%;" class="my-2" />`;
+            editorRef.current.innerHTML += imgHtml;
+            setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
+          }
+        }
+        
         setImageFile(file);
         toast({
           title: "Зображення завантажено",
@@ -127,6 +182,59 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           variant: "destructive",
         });
       }
+    }
+  };
+  
+  const insertCoverImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const uploadedImageUrl = await uploadImageToSupabase(file);
+        setArticle(prev => ({ ...prev, imageUrl: uploadedImageUrl }));
+        setImageFile(file);
+        toast({
+          title: "Зображення завантажено",
+          description: "Зображення успішно додано як обкладинку статті.",
+        });
+      } catch (error) {
+        toast({
+          title: "Помилка завантаження",
+          description: "Не вдалося завантажити зображення.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleInlineImageUpload = () => {
+    if (imageInputRef.current) {
+      imageInputRef.current.click();
+    }
+  };
+
+  const executeCommand = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    if (editorRef.current) {
+      setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
+    }
+  };
+
+  const handleKeyUp = () => {
+    if (editorRef.current) {
+      setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    document.execCommand('insertText', false, text);
+  };
+
+  const insertLink = () => {
+    const url = prompt('Введіть URL посилання:', 'https://');
+    if (url) {
+      executeCommand('createLink', url);
     }
   };
 
@@ -200,20 +308,105 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
               <TabsTrigger value="preview">Попередній перегляд</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="editor">
-              <Textarea
-                id="content"
-                name="content"
-                value={article.content || ""}
-                onChange={handleChange}
-                placeholder="Введіть текст статті"
-                required
-                rows={15}
-                className="font-mono"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Використовуйте звичайний текст або HTML-теги для форматування.
-              </p>
+            <TabsContent value="editor" className="min-h-[400px]">
+              <div className="border rounded-md mb-2 bg-white">
+                <div className="flex flex-wrap gap-0.5 items-center p-2 border-b bg-slate-50">
+                  <ToggleGroup type="multiple" className="flex-wrap">
+                    <ToggleGroupItem value="bold" aria-label="Bold" title="Жирний" onClick={() => executeCommand('bold')}>
+                      <Bold size={16} />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="italic" aria-label="Italic" title="Курсив" onClick={() => executeCommand('italic')}>
+                      <Italic size={16} />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="underline" aria-label="Underline" title="Підкреслений" onClick={() => executeCommand('underline')}>
+                      <Underline size={16} />
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                  
+                  <Separator orientation="vertical" className="mx-1 h-6" />
+                  
+                  <ToggleGroup type="single" className="flex-wrap">
+                    <ToggleGroupItem value="h1" aria-label="Heading 1" title="Заголовок 1" onClick={() => executeCommand('formatBlock', '<h1>')}>
+                      <Heading1 size={16} />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="h2" aria-label="Heading 2" title="Заголовок 2" onClick={() => executeCommand('formatBlock', '<h2>')}>
+                      <Heading2 size={16} />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="h3" aria-label="Heading 3" title="Заголовок 3" onClick={() => executeCommand('formatBlock', '<h3>')}>
+                      <Heading3 size={16} />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="p" aria-label="Paragraph" title="Параграф" onClick={() => executeCommand('formatBlock', '<p>')}>
+                      P
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                  
+                  <Separator orientation="vertical" className="mx-1 h-6" />
+                  
+                  <ToggleGroup type="single" className="flex-wrap">
+                    <ToggleGroupItem value="alignLeft" aria-label="Align Left" title="Вирівняти ліворуч" onClick={() => executeCommand('justifyLeft')}>
+                      <AlignLeft size={16} />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="alignCenter" aria-label="Align Center" title="Вирівняти по центру" onClick={() => executeCommand('justifyCenter')}>
+                      <AlignCenter size={16} />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="alignRight" aria-label="Align Right" title="Вирівняти праворуч" onClick={() => executeCommand('justifyRight')}>
+                      <AlignRight size={16} />
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                  
+                  <Separator orientation="vertical" className="mx-1 h-6" />
+                  
+                  <ToggleGroup type="multiple" className="flex-wrap">
+                    <ToggleGroupItem value="ul" aria-label="Unordered List" title="Маркований список" onClick={() => executeCommand('insertUnorderedList')}>
+                      <List size={16} />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="ol" aria-label="Ordered List" title="Нумерований список" onClick={() => executeCommand('insertOrderedList')}>
+                      <ListOrdered size={16} />
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                  
+                  <Separator orientation="vertical" className="mx-1 h-6" />
+                  
+                  <Button variant="ghost" size="icon" onClick={insertLink} title="Вставити посилання">
+                    <Link size={16} />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => executeCommand('unlink')} title="Видалити посилання">
+                    <Unlink size={16} />
+                  </Button>
+                  
+                  <Separator orientation="vertical" className="mx-1 h-6" />
+                  
+                  <Button variant="ghost" size="icon" onClick={handleInlineImageUpload} title="Вставити зображення">
+                    <ImagePlus size={16} />
+                  </Button>
+                  <input 
+                    type="file"
+                    className="hidden"
+                    ref={imageInputRef}
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                  />
+                  
+                  <Separator orientation="vertical" className="mx-1 h-6" />
+                  
+                  <Button variant="ghost" size="icon" onClick={() => executeCommand('undo')} title="Відмінити">
+                    <Undo size={16} />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => executeCommand('redo')} title="Повторити">
+                    <Redo size={16} />
+                  </Button>
+                </div>
+                
+                <div
+                  ref={editorRef}
+                  className="p-4 min-h-[400px] focus:outline-none"
+                  contentEditable
+                  dangerouslySetInnerHTML={{ __html: article.content || "" }}
+                  onKeyUp={handleKeyUp}
+                  onPaste={handlePaste}
+                  onBlur={handleKeyUp}
+                />
+              </div>
             </TabsContent>
             
             <TabsContent value="html">
@@ -224,7 +417,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                 onChange={handleChange}
                 placeholder="<p>Введіть HTML-код статті</p>"
                 required
-                rows={15}
+                rows={20}
                 className="font-mono"
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -243,7 +436,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <Label htmlFor="imageUrl">URL зображення або файл</Label>
+            <Label htmlFor="imageUrl">URL зображення обкладинки або файл</Label>
             <div className="relative flex items-center">
               <Input
                 id="imageUrl"
@@ -258,7 +451,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                 accept="image/*" 
                 className="hidden" 
                 id="imageUpload"
-                onChange={handleImageUpload}
+                onChange={insertCoverImage}
               />
               <label 
                 htmlFor="imageUpload" 
@@ -273,7 +466,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
               </p>
             )}
             <p className="text-xs text-gray-500 mt-1">
-              Введіть URL або завантажте зображення
+              Введіть URL або завантажте зображення обкладинки
             </p>
           </div>
 
