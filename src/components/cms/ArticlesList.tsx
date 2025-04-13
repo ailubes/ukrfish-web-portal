@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
-import { newsArticles } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import { 
   Table, 
@@ -16,6 +15,7 @@ import { Edit, Trash2, Plus } from "lucide-react";
 import ArticleEditor from "./ArticleEditor";
 import { format } from "date-fns";
 import { uk } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
 
 type ArticlesListProps = {
   onEdit?: (article: NewsArticle) => void;
@@ -25,21 +25,75 @@ type ArticlesListProps = {
 const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  const fetchArticles = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('news_articles')
+        .select('*')
+        .order('publish_date', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      const formattedArticles: NewsArticle[] = data.map(item => ({
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        summary: item.summary,
+        imageUrl: item.image_url || '',
+        publishDate: new Date(item.publish_date || new Date()),
+        category: item.category || 'Загальні новини',
+        author: item.author || 'Адміністратор',
+        tags: item.tags || [],
+      }));
+
+      setArticles(formattedArticles);
+    } catch (error) {
+      console.error('Error fetching articles:', error);
+      toast({
+        title: "Помилка завантаження",
+        description: "Не вдалося завантажити список новин.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    // In a real app, this would be an API call
-    setArticles(newsArticles);
+    fetchArticles();
   }, []);
 
-  const handleDeleteArticle = (id: string) => {
-    // In a real app, this would be an API call
+  const handleDeleteArticle = async (id: string) => {
     if (window.confirm("Ви впевнені, що хочете видалити цю новину?")) {
-      setArticles(articles.filter(article => article.id !== id));
-      toast({
-        title: "Новину видалено",
-        description: "Новину успішно видалено з системи.",
-      });
+      try {
+        const { error } = await supabase
+          .from('news_articles')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          throw error;
+        }
+
+        setArticles(articles.filter(article => article.id !== id));
+        toast({
+          title: "Новину видалено",
+          description: "Новину успішно видалено з системи.",
+        });
+      } catch (error) {
+        console.error('Error deleting article:', error);
+        toast({
+          title: "Помилка видалення",
+          description: "Не вдалося видалити новину.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -51,16 +105,42 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
     }
   };
 
-  const handleSaveEdit = (updatedArticle: NewsArticle) => {
-    // In a real app, this would be an API call
-    setArticles(articles.map(article => 
-      article.id === updatedArticle.id ? updatedArticle : article
-    ));
-    setEditingArticle(null);
-    toast({
-      title: "Новину оновлено",
-      description: "Новину успішно оновлено.",
-    });
+  const handleSaveEdit = async (updatedArticle: NewsArticle) => {
+    try {
+      const { error } = await supabase
+        .from('news_articles')
+        .update({
+          title: updatedArticle.title,
+          content: updatedArticle.content,
+          summary: updatedArticle.summary,
+          image_url: updatedArticle.imageUrl,
+          publish_date: new Date(updatedArticle.publishDate).toISOString(),
+          category: updatedArticle.category,
+          author: updatedArticle.author,
+          tags: updatedArticle.tags
+        })
+        .eq('id', updatedArticle.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setArticles(articles.map(article => 
+        article.id === updatedArticle.id ? updatedArticle : article
+      ));
+      setEditingArticle(null);
+      toast({
+        title: "Новину оновлено",
+        description: "Новину успішно оновлено.",
+      });
+    } catch (error) {
+      console.error('Error updating article:', error);
+      toast({
+        title: "Помилка оновлення",
+        description: "Не вдалося оновити новину.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCancelEdit = () => {
@@ -98,7 +178,9 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
         </Button>
       </div>
       
-      {articles.length === 0 ? (
+      {isLoading ? (
+        <p className="text-gray-500">Завантаження новин...</p>
+      ) : articles.length === 0 ? (
         <p className="text-gray-500">Новин не знайдено.</p>
       ) : (
         <div className="border rounded-md overflow-hidden">

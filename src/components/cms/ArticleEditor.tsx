@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -42,6 +41,7 @@ import { uploadImageToSupabase } from "@/utils/imageUtils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { supabase } from "@/utils/supabase";
 
 const HtmlPreview = ({ html }: { html: string }) => {
   return (
@@ -72,6 +72,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   });
   const [tagsInput, setTagsInput] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const isEditing = !!existingArticle?.id;
   const editorRef = useRef<HTMLDivElement>(null);
@@ -100,9 +101,9 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       .filter((tag) => tag.length > 0);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     if (!article.title || !article.content || !article.summary) {
       toast({
         title: "Помилка",
@@ -112,27 +113,78 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       return;
     }
 
-    const formattedTags = formatTags(tagsInput);
+    setIsSubmitting(true);
 
-    const completeArticle: NewsArticle = {
-      id: article.id || uuidv4(),
-      title: article.title || "",
-      content: article.content || "",
-      summary: article.summary || "",
-      imageUrl: article.imageUrl || "",
-      publishDate: article.publishDate || new Date(),
-      category: article.category || "Загальні новини",
-      author: article.author || "Адміністратор",
-      tags: formattedTags,
-    };
+    try {
+      const formattedTags = formatTags(tagsInput);
 
-    if (onSave) {
-      onSave(completeArticle);
-    } else {
+      const completeArticle: NewsArticle = {
+        id: article.id || uuidv4(),
+        title: article.title || "",
+        content: article.content || "",
+        summary: article.summary || "",
+        imageUrl: article.imageUrl || "",
+        publishDate: article.publishDate || new Date(),
+        category: article.category || "Загальні новини",
+        author: article.author || "Адміністратор",
+        tags: formattedTags,
+      };
+
+      const { error } = await supabase
+        .from('news_articles')
+        .upsert({
+          id: completeArticle.id,
+          title: completeArticle.title,
+          content: completeArticle.content,
+          summary: completeArticle.summary,
+          image_url: completeArticle.imageUrl,
+          publish_date: new Date(completeArticle.publishDate).toISOString(),
+          category: completeArticle.category,
+          author: completeArticle.author,
+          tags: completeArticle.tags
+        });
+
+      if (error) {
+        console.error("Error saving article:", error);
+        throw error;
+      }
+
+      if (onSave) {
+        onSave(completeArticle);
+      }
+
       toast({
         title: isEditing ? "Новину оновлено" : "Новину створено",
         description: "Зміни успішно збережено.",
       });
+
+      if (!onSave) {
+        setArticle({
+          id: "",
+          title: "",
+          content: "",
+          summary: "",
+          imageUrl: "",
+          publishDate: new Date(),
+          category: "",
+          author: "",
+          tags: [],
+        });
+        setTagsInput("");
+        setImageFile(null);
+        if (editorRef.current) {
+          editorRef.current.innerHTML = "";
+        }
+      }
+    } catch (error) {
+      console.error("Error in handleSubmit:", error);
+      toast({
+        title: "Помилка збереження",
+        description: `Не вдалося зберегти статтю: ${error instanceof Error ? error.message : 'Невідома помилка'}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -141,7 +193,6 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     if (file) {
       try {
         const uploadedImageUrl = await uploadImageToSupabase(file);
-        // Insert the image at the current cursor position in the editor
         if (editorRef.current) {
           const selection = window.getSelection();
           if (selection && selection.rangeCount > 0) {
@@ -158,12 +209,10 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
             selection.removeAllRanges();
             selection.addRange(range);
             
-            // Update the content
             if (editorRef.current.innerHTML) {
               setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
             }
           } else {
-            // If no selection, append to the end
             const imgHtml = `<img src="${uploadedImageUrl}" alt="${file.name}" style="max-width: 100%;" class="my-2" />`;
             editorRef.current.innerHTML += imgHtml;
             setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
@@ -237,6 +286,17 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       executeCommand('createLink', url);
     }
   };
+
+  const renderSubmitButton = () => (
+    <Button type="submit" disabled={isSubmitting}>
+      <Save className="mr-2 h-4 w-4" />
+      {isSubmitting ? (
+        "Зберігається..."
+      ) : (
+        isEditing ? "Оновити статтю" : "Опублікувати статтю"
+      )}
+    </Button>
+  );
 
   return (
     <div>
@@ -518,10 +578,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
               Скасувати
             </Button>
           )}
-          <Button type="submit">
-            <Save className="mr-2 h-4 w-4" />
-            {isEditing ? "Оновити статтю" : "Опублікувати статтю"}
-          </Button>
+          {renderSubmitButton()}
         </div>
       </form>
     </div>

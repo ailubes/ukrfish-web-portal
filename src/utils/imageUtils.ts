@@ -77,15 +77,19 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'uk
     const fileName = `${uuidv4()}.${fileExt}`;
     const filePath = `${fileName}`;
 
-    // Upload to Supabase
+    // Upload to Supabase with public access
     const { data, error } = await supabase.storage
       .from(bucketName)
       .upload(filePath, resizedBlob, {
         cacheControl: '3600',
-        upsert: false
+        upsert: true, // Changed from false to true to allow overwriting
+        contentType: `image/${fileExt}`
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Upload error:", error);
+      throw error;
+    }
 
     // Generate public URL
     const { data: { publicUrl } } = supabase.storage.from(bucketName).getPublicUrl(filePath);
