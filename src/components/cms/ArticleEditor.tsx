@@ -131,21 +131,19 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         tags: formattedTags,
       };
 
-      // Add debug logging
       console.log("Saving article:", completeArticle);
       
-      // Try to create a table if it doesn't exist
+      // Create table if it doesn't exist
       try {
         const { error: tableError } = await supabase.rpc('ensure_news_articles_table');
         if (tableError) {
           console.log("Table creation error (might be normal if no RPC exists):", tableError);
-          // Continue anyway
         }
       } catch (tableErr) {
         console.log("Table RPC doesn't exist, continuing with upsert");
       }
 
-      // Attempt to save to Supabase
+      // Save to Supabase - using the news_articles table directly
       const { error } = await supabase
         .from('news_articles')
         .upsert({
@@ -291,9 +289,9 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     }
   };
 
-  // Set up the execCommand functions for formatting rich text
-  const executeCommand = (command: string, value?: string) => {
-    // Add focus to the editor if it's not already
+  // Execute commands for rich text editing
+  const executeCommand = (command: string, value: string = '') => {
+    // Focus the editor if it's not already focused
     if (editorRef.current && document.activeElement !== editorRef.current) {
       editorRef.current.focus();
     }
@@ -307,35 +305,44 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     }
   };
 
-  // Format block specifically for headings and paragraphs
+  // Fixed formatBlock function to properly handle headings and paragraphs
   const formatBlock = (tag: string) => {
-    // Force explicit heading/paragraph formatting to ensure it works
-    if (tag === 'p') {
+    if (editorRef.current) {
       const selection = window.getSelection();
       if (selection && selection.rangeCount > 0) {
+        // Get the current selection
         const range = selection.getRangeAt(0);
         const parentEl = range.commonAncestorContainer.parentElement;
         
-        // Check if within a heading
-        const isHeading = parentEl?.tagName && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(parentEl.tagName);
-        
-        if (isHeading && editorRef.current) {
-          // Create a paragraph element
-          const p = document.createElement('p');
-          p.innerHTML = parentEl.innerHTML;
-          
-          // Replace the heading with the paragraph
-          parentEl.parentNode?.replaceChild(p, parentEl);
-          
-          // Update content
-          setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
+        // Check if we're already in a similar block element
+        if (parentEl?.tagName === tag.toUpperCase()) {
+          // If we're already in this element type, convert to paragraph
+          executeCommand('formatBlock', '<p>');
           return;
         }
+        
+        // Use either execCommand or direct DOM manipulation based on tag
+        if (['h1', 'h2', 'h3'].includes(tag)) {
+          // For headings, ensure we use the correct styling
+          executeCommand('formatBlock', `<${tag}>`);
+          
+          // Add specific styling for headings if needed
+          if (tag === 'h1') {
+            document.execCommand('fontSize', false, '6');
+          } else if (tag === 'h2') {
+            document.execCommand('fontSize', false, '5');
+          } else if (tag === 'h3') {
+            document.execCommand('fontSize', false, '4');
+          }
+        } else if (tag === 'p') {
+          // For paragraphs
+          executeCommand('formatBlock', '<p>');
+        }
+        
+        // Update content
+        setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
       }
     }
-    
-    // Use execCommand for standard formatting
-    executeCommand('formatBlock', `<${tag}>`);
   };
 
   const handleKeyUp = () => {
@@ -488,19 +495,19 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                   
                   <ToggleGroup type="single" className="flex-wrap">
                     <ToggleGroupItem value="h1" aria-label="Heading 1" title="Заголовок 1" 
-                      onClick={() => formatBlock('h1')}>
+                      onClick={() => executeCommand('formatBlock', '<h1>')}>
                       <Heading1 size={16} />
                     </ToggleGroupItem>
                     <ToggleGroupItem value="h2" aria-label="Heading 2" title="Заголовок 2" 
-                      onClick={() => formatBlock('h2')}>
+                      onClick={() => executeCommand('formatBlock', '<h2>')}>
                       <Heading2 size={16} />
                     </ToggleGroupItem>
                     <ToggleGroupItem value="h3" aria-label="Heading 3" title="Заголовок 3" 
-                      onClick={() => formatBlock('h3')}>
+                      onClick={() => executeCommand('formatBlock', '<h3>')}>
                       <Heading3 size={16} />
                     </ToggleGroupItem>
                     <ToggleGroupItem value="p" aria-label="Paragraph" title="Параграф" 
-                      onClick={() => formatBlock('p')}>
+                      onClick={() => executeCommand('formatBlock', '<p>')}>
                       P
                     </ToggleGroupItem>
                   </ToggleGroup>

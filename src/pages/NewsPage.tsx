@@ -6,16 +6,78 @@ import NewsCard from "../components/NewsCard";
 import HeroSection from "../components/HeroSection";
 import { newsArticles } from "../data/mockData";
 import { Search, Filter } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { NewsArticle } from "@/types";
 
 const NewsPage = () => {
-  const [articles, setArticles] = useState(newsArticles);
-  const [filteredArticles, setFilteredArticles] = useState(newsArticles);
+  const [articles, setArticles] = useState<NewsArticle[]>([]);
+  const [filteredArticles, setFilteredArticles] = useState<NewsArticle[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [categories, setCategories] = useState<string[]>(["Всі категорії"]);
 
-  // Get unique categories
-  const categories = ["Всі категорії", ...new Set(newsArticles.map((article) => article.category))];
+  useEffect(() => {
+    const fetchArticles = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('news_articles')
+          .select('*')
+          .order('publish_date', { ascending: false });
 
+        if (error) {
+          console.error("Error fetching articles:", error);
+          // Fallback to mock data if Supabase query fails
+          setArticles(newsArticles);
+          
+          // Get unique categories from mock data
+          const uniqueCategories = ["Всі категорії", ...new Set(newsArticles.map((article) => article.category))];
+          setCategories(uniqueCategories);
+        } else if (data && data.length > 0) {
+          console.log("Fetched articles from database:", data);
+          
+          const formattedArticles: NewsArticle[] = data.map(item => ({
+            id: item.id,
+            title: item.title,
+            content: item.content,
+            summary: item.summary,
+            imageUrl: item.image_url || '',
+            publishDate: new Date(item.publish_date || new Date()),
+            category: item.category || 'Загальні новини',
+            author: item.author || 'Адміністратор',
+            tags: item.tags || [],
+          }));
+          
+          setArticles(formattedArticles);
+          
+          // Get unique categories from fetched data
+          const uniqueCategories = ["Всі категорії", ...new Set(formattedArticles.map((article) => article.category).filter(Boolean))];
+          setCategories(uniqueCategories);
+        } else {
+          // Fallback to mock data if no articles found
+          setArticles(newsArticles);
+          
+          // Get unique categories from mock data
+          const uniqueCategories = ["Всі категорії", ...new Set(newsArticles.map((article) => article.category))];
+          setCategories(uniqueCategories);
+        }
+      } catch (err) {
+        console.error("Error in fetchArticles:", err);
+        // Fallback to mock data on error
+        setArticles(newsArticles);
+        
+        // Get unique categories from mock data
+        const uniqueCategories = ["Всі категорії", ...new Set(newsArticles.map((article) => article.category))];
+        setCategories(uniqueCategories);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchArticles();
+  }, []);
+  
   useEffect(() => {
     let result = articles;
     
@@ -90,7 +152,11 @@ const NewsPage = () => {
         {/* News List */}
         <section className="py-12 px-4">
           <div className="container mx-auto">
-            {filteredArticles.length === 0 ? (
+            {isLoading ? (
+              <div className="text-center py-12">
+                <p className="text-gray-500">Завантаження новин...</p>
+              </div>
+            ) : filteredArticles.length === 0 ? (
               <div className="text-center py-12">
                 <h3 className="text-xl font-bold text-gray-600">Нічого не знайдено</h3>
                 <p className="mt-2 text-gray-500">Спробуйте змінити параметри пошуку</p>

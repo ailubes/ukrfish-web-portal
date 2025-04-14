@@ -17,11 +17,13 @@ export const supabase = createClient<Database>(
       persistSession: true,
       autoRefreshToken: true,
     },
+    db: {
+      schema: 'public',
+    },
     global: {
-      // Disable default fetch interceptors for headers
       headers: {
-        'X-Client-Info': 'supabase-js-web'
-      }
-    }
+        'X-Client-Info': 'supabase-js-web',
+      },
+    },
   }
 );
