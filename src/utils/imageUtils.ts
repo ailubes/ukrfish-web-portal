@@ -71,23 +71,6 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
   try {
     console.log("Starting image upload process...");
     
-    // Try to create the bucket if it doesn't exist
-    try {
-      const { data: bucketData, error: bucketError } = await supabase.storage
-        .createBucket(bucketName, {
-          public: true,
-          fileSizeLimit: 10485760, // 10MB
-        });
-      
-      if (bucketError && !bucketError.message.includes('already exists')) {
-        console.warn("Bucket creation error:", bucketError);
-      } else {
-        console.log("Bucket created or already exists:", bucketData);
-      }
-    } catch (bucketErr) {
-      console.log("Bucket creation error (likely already exists):", bucketErr);
-    }
-    
     // Generate a unique filename
     const fileExt = file.name.split('.').pop() || 'jpg';
     const fileName = `${uuidv4()}.${fileExt}`;
@@ -95,13 +78,27 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
 
     console.log("Uploading file:", filePath);
     
+    // First try to create the bucket (it's okay if it fails because it already exists)
+    try {
+      const { error: bucketError } = await supabase.storage.createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 10485760 // 10MB
+      });
+      
+      if (bucketError && !bucketError.message.includes('already exists')) {
+        console.warn("Bucket creation error:", bucketError);
+      } 
+    } catch (bucketErr) {
+      console.log("Bucket already exists, continuing with upload");
+    }
+    
     // Upload to Supabase with public access
     const { data, error } = await supabase.storage
       .from(bucketName)
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: true,
-        contentType: `image/${fileExt}`
+        contentType: file.type
       });
 
     if (error) {

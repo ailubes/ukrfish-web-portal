@@ -51,26 +51,6 @@ const AdminDashboardPage = () => {
     }
     
     setIsAuthenticated(true);
-    
-    // Initialize Supabase bucket for images if needed
-    const initStorage = async () => {
-      try {
-        const { data, error } = await supabase.storage.createBucket('images', {
-          public: true,
-          fileSizeLimit: 10485760, // 10MB
-        });
-        
-        if (error && !error.message.includes('already exists')) {
-          console.warn("Error creating storage bucket:", error);
-        } else {
-          console.log("Storage bucket initialized:", data);
-        }
-      } catch (err) {
-        console.error("Error initializing storage:", err);
-      }
-    };
-    
-    initStorage();
   }, [navigate, toast]);
 
   const handleLogout = () => {
@@ -129,7 +109,7 @@ const AdminDashboardPage = () => {
                 Додати новину
               </Button>
             </div>
-            <ArticlesList onEdit={setEditingArticle} onNew={() => setEditingArticle({} as NewsArticle)} />
+            <ArticlesList onEdit={setEditingArticle} />
           </div>
         );
       case "createArticle":
@@ -141,7 +121,7 @@ const AdminDashboardPage = () => {
       case "analytics":
         return <AnalyticsDashboard />;
       default:
-        return <ArticlesList onEdit={setEditingArticle} onNew={() => setEditingArticle({} as NewsArticle)} />;
+        return <ArticlesList onEdit={setEditingArticle} />;
     }
   };
 

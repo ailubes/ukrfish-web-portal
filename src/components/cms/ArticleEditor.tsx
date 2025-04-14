@@ -41,15 +41,61 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { uploadImageToSupabase } from "@/utils/imageUtils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Separator } from "@/components/ui/separator";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
+
+// Add CSS for editor preview styling
+const editorStyles = `
+  .editor-preview h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin-bottom: 0.5em;
+    color: #0057b7;
+  }
+  .editor-preview h2 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-bottom: 0.5em;
+    color: #0057b7;
+  }
+  .editor-preview h3 {
+    font-size: 1.25em;
+    font-weight: bold;
+    margin-bottom: 0.5em;
+    color: #0057b7;
+  }
+  .editor-preview p {
+    margin-bottom: 1em;
+  }
+  .editor-preview ul, .editor-preview ol {
+    margin-left: 1.5em;
+    margin-bottom: 1em;
+  }
+  .editor-preview ul {
+    list-style-type: disc;
+  }
+  .editor-preview ol {
+    list-style-type: decimal;
+  }
+  .editor-preview img {
+    max-width: 100%;
+    height: auto;
+    margin: 1em 0;
+  }
+  .editor-preview a {
+    color: #0057b7;
+    text-decoration: underline;
+  }
+`;
 
 const HtmlPreview = ({ html }: { html: string }) => {
   return (
-    <div 
-      className="p-4 border rounded-md bg-white min-h-[400px] max-h-[800px] overflow-y-auto"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <>
+      <style>{editorStyles}</style>
+      <div 
+        className="p-4 border rounded-md bg-white min-h-[400px] max-h-[800px] overflow-y-auto editor-preview"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </>
   );
 };
 
@@ -133,16 +179,6 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
 
       console.log("Saving article:", completeArticle);
       
-      // Create table if it doesn't exist
-      try {
-        const { error: tableError } = await supabase.rpc('ensure_news_articles_table');
-        if (tableError) {
-          console.log("Table creation error (might be normal if no RPC exists):", tableError);
-        }
-      } catch (tableErr) {
-        console.log("Table RPC doesn't exist, continuing with upsert");
-      }
-
       // Save to Supabase - using the news_articles table directly
       const { error } = await supabase
         .from('news_articles')
@@ -373,6 +409,18 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     }
   }, []);
 
+  // Apply custom styling to the editor content
+  useEffect(() => {
+    // Add the editor styles to the document head
+    const styleElement = document.createElement('style');
+    styleElement.innerHTML = editorStyles;
+    document.head.appendChild(styleElement);
+
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
+
   return (
     <div>
       {onCancel && (
@@ -540,7 +588,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                 
                 <div
                   ref={editorRef}
-                  className="p-4 min-h-[400px] focus:outline-none"
+                  className="p-4 min-h-[400px] focus:outline-none editor-content"
                   contentEditable={true}
                   suppressContentEditableWarning={true}
                   dangerouslySetInnerHTML={{ __html: article.content || "" }}

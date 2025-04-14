@@ -80,6 +80,39 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-bold text-blue-primary;
   }
+  
+  /* Editor Content Styles */
+  .editor-content h1, .editor-preview h1 {
+    @apply text-2xl font-bold mb-3 text-blue-primary;
+  }
+  
+  .editor-content h2, .editor-preview h2 {
+    @apply text-xl font-bold mb-2 text-blue-primary;
+  }
+  
+  .editor-content h3, .editor-preview h3 {
+    @apply text-lg font-bold mb-2 text-blue-primary;
+  }
+  
+  .editor-content p, .editor-preview p {
+    @apply mb-4;
+  }
+  
+  .editor-content ul, .editor-preview ul {
+    @apply list-disc pl-5 mb-4;
+  }
+  
+  .editor-content ol, .editor-preview ol {
+    @apply list-decimal pl-5 mb-4;
+  }
+  
+  .editor-content a, .editor-preview a {
+    @apply text-blue-primary underline;
+  }
+  
+  .editor-content img, .editor-preview img {
+    @apply max-w-full h-auto my-4;
+  }
 }
 
 @layer components {

@@ -40,7 +40,7 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
         throw error;
       }
 
-      const formattedArticles: NewsArticle[] = data.map(item => ({
+      const formattedArticles: NewsArticle[] = data ? data.map(item => ({
         id: item.id,
         title: item.title,
         content: item.content,
@@ -50,7 +50,7 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
         category: item.category || 'Загальні новини',
         author: item.author || 'Адміністратор',
         tags: item.tags || [],
-      }));
+      })) : [];
 
       setArticles(formattedArticles);
     } catch (error) {
@@ -170,18 +170,20 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium">Управління новинами</h3>
-        <Button onClick={handleAddNew}>
-          <Plus className="h-4 w-4 mr-1" /> 
-          Створити новину
-        </Button>
-      </div>
+      {!onEdit && (
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium">Управління новинами</h3>
+          <Button onClick={handleAddNew}>
+            <Plus className="h-4 w-4 mr-1" /> 
+            Створити новину
+          </Button>
+        </div>
+      )}
       
       {isLoading ? (
         <p className="text-gray-500">Завантаження новин...</p>
       ) : articles.length === 0 ? (
-        <p className="text-gray-500">Новин не знайдено.</p>
+        <p className="text-gray-500">Новин не знайдено. Додайте першу новину.</p>
       ) : (
         <div className="border rounded-md overflow-hidden">
           <Table>
