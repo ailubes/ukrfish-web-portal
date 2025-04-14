@@ -308,40 +308,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   // Fixed formatBlock function to properly handle headings and paragraphs
   const formatBlock = (tag: string) => {
     if (editorRef.current) {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        // Get the current selection
-        const range = selection.getRangeAt(0);
-        const parentEl = range.commonAncestorContainer.parentElement;
-        
-        // Check if we're already in a similar block element
-        if (parentEl?.tagName === tag.toUpperCase()) {
-          // If we're already in this element type, convert to paragraph
-          executeCommand('formatBlock', '<p>');
-          return;
-        }
-        
-        // Use either execCommand or direct DOM manipulation based on tag
-        if (['h1', 'h2', 'h3'].includes(tag)) {
-          // For headings, ensure we use the correct styling
-          executeCommand('formatBlock', `<${tag}>`);
-          
-          // Add specific styling for headings if needed
-          if (tag === 'h1') {
-            document.execCommand('fontSize', false, '6');
-          } else if (tag === 'h2') {
-            document.execCommand('fontSize', false, '5');
-          } else if (tag === 'h3') {
-            document.execCommand('fontSize', false, '4');
-          }
-        } else if (tag === 'p') {
-          // For paragraphs
-          executeCommand('formatBlock', '<p>');
-        }
-        
-        // Update content
-        setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
-      }
+      executeCommand('formatBlock', `<${tag}>`);
     }
   };
 
@@ -495,19 +462,19 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                   
                   <ToggleGroup type="single" className="flex-wrap">
                     <ToggleGroupItem value="h1" aria-label="Heading 1" title="Заголовок 1" 
-                      onClick={() => executeCommand('formatBlock', '<h1>')}>
+                      onClick={() => formatBlock('h1')}>
                       <Heading1 size={16} />
                     </ToggleGroupItem>
                     <ToggleGroupItem value="h2" aria-label="Heading 2" title="Заголовок 2" 
-                      onClick={() => executeCommand('formatBlock', '<h2>')}>
+                      onClick={() => formatBlock('h2')}>
                       <Heading2 size={16} />
                     </ToggleGroupItem>
                     <ToggleGroupItem value="h3" aria-label="Heading 3" title="Заголовок 3" 
-                      onClick={() => executeCommand('formatBlock', '<h3>')}>
+                      onClick={() => formatBlock('h3')}>
                       <Heading3 size={16} />
                     </ToggleGroupItem>
                     <ToggleGroupItem value="p" aria-label="Paragraph" title="Параграф" 
-                      onClick={() => executeCommand('formatBlock', '<p>')}>
+                      onClick={() => formatBlock('p')}>
                       P
                     </ToggleGroupItem>
                   </ToggleGroup>
