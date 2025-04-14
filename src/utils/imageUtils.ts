@@ -78,10 +78,22 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
 
     console.log("Uploading file:", filePath);
     
+    // Resize image before upload to reduce size if it's too large
+    let fileToUpload = file;
+    if (file.size > 500 * 1024) { // If larger than 500KB, resize it
+      try {
+        const resizedBlob = await resizeImage(file, 500);
+        fileToUpload = new File([resizedBlob], file.name, { type: file.type });
+        console.log("Image resized for upload:", fileToUpload.size / 1024, "KB");
+      } catch (resizeError) {
+        console.warn("Could not resize image, uploading original:", resizeError);
+      }
+    }
+    
     // Upload to Supabase with public access
     const { data, error } = await supabase.storage
       .from(bucketName)
-      .upload(filePath, file, {
+      .upload(filePath, fileToUpload, {
         cacheControl: '3600',
         upsert: true,
         contentType: file.type

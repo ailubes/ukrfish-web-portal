@@ -117,6 +117,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   const [tagsInput, setTagsInput] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImageUploading, setIsImageUploading] = useState(false);
   const { toast } = useToast();
   const isEditing = !!existingArticle?.id;
   const editorRef = useRef<HTMLDivElement>(null);
@@ -188,7 +189,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
 
       console.log("Saving article:", completeArticle);
       
-      // Save to Supabase - using the news_articles table directly
+      // Save to Supabase with a direct update/insert for the specific table
       const { error } = await supabase
         .from('news_articles')
         .upsert({
@@ -252,6 +253,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     const file = e.target.files?.[0];
     if (file) {
       try {
+        setIsImageUploading(true);
         toast({
           title: "Завантаження...",
           description: "Зображення завантажується, зачекайте, будь ласка.",
@@ -302,6 +304,8 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           description: "Не вдалося завантажити зображення.",
           variant: "destructive",
         });
+      } finally {
+        setIsImageUploading(false);
       }
     }
   };
@@ -316,6 +320,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     const file = e.target.files?.[0];
     if (file) {
       try {
+        setIsImageUploading(true);
         toast({
           title: "Завантаження...",
           description: "Зображення завантажується, зачекайте, будь ласка.",
@@ -335,6 +340,8 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           description: "Не вдалося завантажити зображення.",
           variant: "destructive",
         });
+      } finally {
+        setIsImageUploading(false);
       }
     }
   };
@@ -397,7 +404,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   };
 
   const renderSubmitButton = () => (
-    <Button type="submit" disabled={isSubmitting}>
+    <Button type="submit" disabled={isSubmitting || isImageUploading}>
       <Save className="mr-2 h-4 w-4" />
       {isSubmitting ? (
         "Зберігається..."
@@ -660,6 +667,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                 type="button"
                 onClick={handleCoverImageUpload}
                 className="absolute right-3 cursor-pointer"
+                disabled={isImageUploading}
               >
                 <ImagePlus className="h-5 w-5 text-gray-400 hover:text-gray-600" />
               </button>
