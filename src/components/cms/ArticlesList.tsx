@@ -133,6 +133,8 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
         title: "Новину оновлено",
         description: "Новину успішно оновлено.",
       });
+      // Refresh articles list
+      fetchArticles();
     } catch (error) {
       console.error('Error updating article:', error);
       toast({
@@ -183,7 +185,13 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
       {isLoading ? (
         <p className="text-gray-500">Завантаження новин...</p>
       ) : articles.length === 0 ? (
-        <p className="text-gray-500">Новин не знайдено. Додайте першу новину.</p>
+        <div className="text-center py-10">
+          <p className="text-gray-500 mb-4">Новин не знайдено. Додайте першу новину.</p>
+          <Button onClick={handleAddNew}>
+            <Plus className="h-4 w-4 mr-1" /> 
+            Додати новину
+          </Button>
+        </div>
       ) : (
         <div className="border rounded-md overflow-hidden">
           <Table>

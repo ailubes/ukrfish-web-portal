@@ -31,11 +31,8 @@ import {
   AlignRight,
   Link,
   Unlink,
-  Video,
-  Code,
   Undo,
   Redo,
-  Trash2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { uploadImageToSupabase } from "@/utils/imageUtils";
@@ -113,8 +110,8 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     summary: "",
     imageUrl: "",
     publishDate: new Date(),
-    category: "",
-    author: "",
+    category: "Загальні новини",
+    author: "Адміністратор",
     tags: [],
   });
   const [tagsInput, setTagsInput] = useState("");
@@ -124,6 +121,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   const isEditing = !!existingArticle?.id;
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const coverImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (existingArticle) {
@@ -165,8 +163,19 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     try {
       const formattedTags = formatTags(tagsInput);
 
+      // Make sure we have the current content from the editor
+      if (editorRef.current) {
+        setArticle(prev => ({
+          ...prev,
+          content: editorRef.current.innerHTML || prev.content || ""
+        }));
+      }
+
+      // Ensure we have an ID
+      const articleId = article.id || uuidv4();
+
       const completeArticle: NewsArticle = {
-        id: article.id || uuidv4(),
+        id: articleId,
         title: article.title || "",
         content: article.content || "",
         summary: article.summary || "",
@@ -217,8 +226,8 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           summary: "",
           imageUrl: "",
           publishDate: new Date(),
-          category: "",
-          author: "",
+          category: "Загальні новини",
+          author: "Адміністратор",
           tags: [],
         });
         setTagsInput("");
@@ -266,13 +275,18 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
             selection.removeAllRanges();
             selection.addRange(range);
             
-            if (editorRef.current.innerHTML) {
-              setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
-            }
+            // Update the content state
+            setArticle(prev => ({ 
+              ...prev, 
+              content: editorRef.current?.innerHTML || prev.content || "" 
+            }));
           } else {
             const imgHtml = `<img src="${uploadedImageUrl}" alt="${file.name}" style="max-width: 100%;" class="my-2" />`;
             editorRef.current.innerHTML += imgHtml;
-            setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
+            setArticle(prev => ({ 
+              ...prev, 
+              content: editorRef.current?.innerHTML || prev.content || "" 
+            }));
           }
         }
         
@@ -289,6 +303,12 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           variant: "destructive",
         });
       }
+    }
+  };
+  
+  const handleCoverImageUpload = async () => {
+    if (coverImageInputRef.current) {
+      coverImageInputRef.current.click();
     }
   };
   
@@ -452,7 +472,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           <div>
             <Label htmlFor="category">Категорія</Label>
             <Select
-              value={article.category || ""}
+              value={article.category || "Загальні новини"}
               onValueChange={(value) => handleSelectChange("category", value)}
             >
               <SelectTrigger>
@@ -636,24 +656,34 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                 placeholder="https://example.com/image.jpg"
                 className="pr-10"
               />
-              <Input 
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
-                id="imageUpload"
-                onChange={insertCoverImage}
-              />
-              <label 
-                htmlFor="imageUpload" 
+              <button 
+                type="button"
+                onClick={handleCoverImageUpload}
                 className="absolute right-3 cursor-pointer"
               >
                 <ImagePlus className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-              </label>
+              </button>
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                ref={coverImageInputRef}
+                onChange={insertCoverImage}
+              />
             </div>
             {imageFile && (
               <p className="text-xs text-green-600 mt-1">
                 Файл: {imageFile.name} (Завантажено)
               </p>
+            )}
+            {article.imageUrl && (
+              <div className="mt-2">
+                <img 
+                  src={article.imageUrl} 
+                  alt="Обкладинка" 
+                  className="max-h-32 object-contain border rounded"
+                />
+              </div>
             )}
             <p className="text-xs text-gray-500 mt-1">
               Введіть URL або завантажте зображення обкладинки

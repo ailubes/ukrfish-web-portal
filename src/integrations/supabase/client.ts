@@ -27,19 +27,3 @@ export const supabase = createClient<Database>(
     },
   }
 );
-
-// Initialize storage bucket if it doesn't exist
-(async () => {
-  try {
-    const { data, error } = await supabase.storage.createBucket('images', {
-      public: true,
-      fileSizeLimit: 10485760 // 10MB
-    });
-    
-    if (error && !error.message.includes('already exists')) {
-      console.error("Error creating storage bucket:", error);
-    }
-  } catch (err) {
-    console.log("Storage bucket already exists or initialization skipped");
-  }
-})();

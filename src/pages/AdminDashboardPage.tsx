@@ -109,7 +109,7 @@ const AdminDashboardPage = () => {
                 Додати новину
               </Button>
             </div>
-            <ArticlesList onEdit={setEditingArticle} />
+            <ArticlesList onEdit={setEditingArticle} onNew={() => setEditingArticle({} as NewsArticle)} />
           </div>
         );
       case "createArticle":
@@ -121,7 +121,7 @@ const AdminDashboardPage = () => {
       case "analytics":
         return <AnalyticsDashboard />;
       default:
-        return <ArticlesList onEdit={setEditingArticle} />;
+        return <ArticlesList onEdit={setEditingArticle} onNew={() => setEditingArticle({} as NewsArticle)} />;
     }
   };
 
