@@ -67,22 +67,37 @@ export const resizeImage = (file: File, maxSizeKB: number = 100): Promise<Blob> 
   });
 };
 
-export const uploadImageToSupabase = async (file: File, bucketName: string = 'ukrfish'): Promise<string> => {
+export const uploadImageToSupabase = async (file: File, bucketName: string = 'images'): Promise<string> => {
   try {
-    // Resize the image first
-    const resizedBlob = await resizeImage(file);
+    console.log("Starting image upload process...");
+    
+    // Try to create the bucket if it doesn't exist
+    const { data: bucketData, error: bucketError } = await supabase.storage
+      .createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 10485760, // 10MB
+      });
+    
+    if (bucketError && !bucketError.message.includes('already exists')) {
+      console.warn("Bucket creation error:", bucketError);
+      // Continue anyway, it might be a permissions issue but the bucket might already exist
+    } else {
+      console.log("Bucket created or already exists:", bucketData);
+    }
     
     // Generate a unique filename
     const fileExt = file.name.split('.').pop();
     const fileName = `${uuidv4()}.${fileExt}`;
     const filePath = `${fileName}`;
 
+    console.log("Uploading file:", filePath);
+    
     // Upload to Supabase with public access
     const { data, error } = await supabase.storage
       .from(bucketName)
-      .upload(filePath, resizedBlob, {
+      .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: true, // Changed from false to true to allow overwriting
+        upsert: true,
         contentType: `image/${fileExt}`
       });
 
@@ -91,8 +106,11 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'uk
       throw error;
     }
 
+    console.log("Upload successful:", data);
+
     // Generate public URL
     const { data: { publicUrl } } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+    console.log("Generated public URL:", publicUrl);
 
     return publicUrl;
   } catch (error) {

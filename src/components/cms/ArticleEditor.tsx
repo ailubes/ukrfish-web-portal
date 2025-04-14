@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -130,6 +131,21 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         tags: formattedTags,
       };
 
+      // Add debug logging
+      console.log("Saving article:", completeArticle);
+      
+      // Try to create a table if it doesn't exist
+      try {
+        const { error: tableError } = await supabase.rpc('ensure_news_articles_table');
+        if (tableError) {
+          console.log("Table creation error (might be normal if no RPC exists):", tableError);
+          // Continue anyway
+        }
+      } catch (tableErr) {
+        console.log("Table RPC doesn't exist, continuing with upsert");
+      }
+
+      // Attempt to save to Supabase
       const { error } = await supabase
         .from('news_articles')
         .upsert({
@@ -149,6 +165,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         throw error;
       }
 
+      // If article saved successfully
       if (onSave) {
         onSave(completeArticle);
       }
@@ -192,7 +209,13 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     const file = e.target.files?.[0];
     if (file) {
       try {
+        toast({
+          title: "Завантаження...",
+          description: "Зображення завантажується, зачекайте, будь ласка.",
+        });
+        
         const uploadedImageUrl = await uploadImageToSupabase(file);
+        
         if (editorRef.current) {
           const selection = window.getSelection();
           if (selection && selection.rangeCount > 0) {
@@ -225,6 +248,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           description: "Зображення успішно додано до статті.",
         });
       } catch (error) {
+        console.error("Image upload error:", error);
         toast({
           title: "Помилка завантаження",
           description: "Не вдалося завантажити зображення.",
@@ -238,6 +262,11 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     const file = e.target.files?.[0];
     if (file) {
       try {
+        toast({
+          title: "Завантаження...",
+          description: "Зображення завантажується, зачекайте, будь ласка.",
+        });
+        
         const uploadedImageUrl = await uploadImageToSupabase(file);
         setArticle(prev => ({ ...prev, imageUrl: uploadedImageUrl }));
         setImageFile(file);
@@ -246,6 +275,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           description: "Зображення успішно додано як обкладинку статті.",
         });
       } catch (error) {
+        console.error("Cover image upload error:", error);
         toast({
           title: "Помилка завантаження",
           description: "Не вдалося завантажити зображення.",
@@ -261,11 +291,51 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     }
   };
 
+  // Set up the execCommand functions for formatting rich text
   const executeCommand = (command: string, value?: string) => {
+    // Add focus to the editor if it's not already
+    if (editorRef.current && document.activeElement !== editorRef.current) {
+      editorRef.current.focus();
+    }
+    
+    // Execute the command
     document.execCommand(command, false, value);
+    
+    // Update the content state
     if (editorRef.current) {
       setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
     }
+  };
+
+  // Format block specifically for headings and paragraphs
+  const formatBlock = (tag: string) => {
+    // Force explicit heading/paragraph formatting to ensure it works
+    if (tag === 'p') {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const parentEl = range.commonAncestorContainer.parentElement;
+        
+        // Check if within a heading
+        const isHeading = parentEl?.tagName && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(parentEl.tagName);
+        
+        if (isHeading && editorRef.current) {
+          // Create a paragraph element
+          const p = document.createElement('p');
+          p.innerHTML = parentEl.innerHTML;
+          
+          // Replace the heading with the paragraph
+          parentEl.parentNode?.replaceChild(p, parentEl);
+          
+          // Update content
+          setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
+          return;
+        }
+      }
+    }
+    
+    // Use execCommand for standard formatting
+    executeCommand('formatBlock', `<${tag}>`);
   };
 
   const handleKeyUp = () => {
@@ -281,6 +351,15 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   };
 
   const insertLink = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      toast({
+        title: "Виберіть текст",
+        description: "Спочатку виділіть текст, який потрібно зробити посиланням",
+      });
+      return;
+    }
+    
     const url = prompt('Введіть URL посилання:', 'https://');
     if (url) {
       executeCommand('createLink', url);
@@ -297,6 +376,28 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       )}
     </Button>
   );
+  
+  // Initialize editor when component mounts
+  useEffect(() => {
+    if (editorRef.current) {
+      // Make sure contentEditable is set
+      editorRef.current.contentEditable = 'true';
+      
+      // Set up focus handling
+      const handleFocus = () => {
+        // Ensure document.execCommand works in this context 
+        if (!document.queryCommandSupported('insertHTML')) {
+          console.warn('HTML editing is not fully supported in this browser');
+        }
+      };
+      
+      editorRef.current.addEventListener('focus', handleFocus);
+      
+      return () => {
+        editorRef.current?.removeEventListener('focus', handleFocus);
+      };
+    }
+  }, []);
 
   return (
     <div>
@@ -386,16 +487,20 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                   <Separator orientation="vertical" className="mx-1 h-6" />
                   
                   <ToggleGroup type="single" className="flex-wrap">
-                    <ToggleGroupItem value="h1" aria-label="Heading 1" title="Заголовок 1" onClick={() => executeCommand('formatBlock', '<h1>')}>
+                    <ToggleGroupItem value="h1" aria-label="Heading 1" title="Заголовок 1" 
+                      onClick={() => formatBlock('h1')}>
                       <Heading1 size={16} />
                     </ToggleGroupItem>
-                    <ToggleGroupItem value="h2" aria-label="Heading 2" title="Заголовок 2" onClick={() => executeCommand('formatBlock', '<h2>')}>
+                    <ToggleGroupItem value="h2" aria-label="Heading 2" title="Заголовок 2" 
+                      onClick={() => formatBlock('h2')}>
                       <Heading2 size={16} />
                     </ToggleGroupItem>
-                    <ToggleGroupItem value="h3" aria-label="Heading 3" title="Заголовок 3" onClick={() => executeCommand('formatBlock', '<h3>')}>
+                    <ToggleGroupItem value="h3" aria-label="Heading 3" title="Заголовок 3" 
+                      onClick={() => formatBlock('h3')}>
                       <Heading3 size={16} />
                     </ToggleGroupItem>
-                    <ToggleGroupItem value="p" aria-label="Paragraph" title="Параграф" onClick={() => executeCommand('formatBlock', '<p>')}>
+                    <ToggleGroupItem value="p" aria-label="Paragraph" title="Параграф" 
+                      onClick={() => formatBlock('p')}>
                       P
                     </ToggleGroupItem>
                   </ToggleGroup>
@@ -417,10 +522,12 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                   <Separator orientation="vertical" className="mx-1 h-6" />
                   
                   <ToggleGroup type="multiple" className="flex-wrap">
-                    <ToggleGroupItem value="ul" aria-label="Unordered List" title="Маркований список" onClick={() => executeCommand('insertUnorderedList')}>
+                    <ToggleGroupItem value="ul" aria-label="Unordered List" title="Маркований список" 
+                      onClick={() => executeCommand('insertUnorderedList')}>
                       <List size={16} />
                     </ToggleGroupItem>
-                    <ToggleGroupItem value="ol" aria-label="Ordered List" title="Нумерований список" onClick={() => executeCommand('insertOrderedList')}>
+                    <ToggleGroupItem value="ol" aria-label="Ordered List" title="Нумерований список" 
+                      onClick={() => executeCommand('insertOrderedList')}>
                       <ListOrdered size={16} />
                     </ToggleGroupItem>
                   </ToggleGroup>
@@ -460,7 +567,8 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                 <div
                   ref={editorRef}
                   className="p-4 min-h-[400px] focus:outline-none"
-                  contentEditable
+                  contentEditable={true}
+                  suppressContentEditableWarning={true}
                   dangerouslySetInnerHTML={{ __html: article.content || "" }}
                   onKeyUp={handleKeyUp}
                   onPaste={handlePaste}

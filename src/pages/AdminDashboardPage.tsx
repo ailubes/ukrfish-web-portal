@@ -19,13 +19,14 @@ import {
 } from "@/components/ui/sidebar";
 import { NewsArticle, Member } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Newspaper, Users, LogOut, BarChart3, CreditCard } from "lucide-react";
+import { Newspaper, Users, LogOut, BarChart3, CreditCard, Plus } from "lucide-react";
 import ArticlesList from "../components/cms/ArticlesList";
 import ArticleEditor from "../components/cms/ArticleEditor";
 import MembersList from "../components/cms/MembersList";
 import MemberEditor from "../components/cms/MemberEditor";
 import MembershipPayments from "../components/cms/MembershipPayments";
 import AnalyticsDashboard from "../components/cms/AnalyticsDashboard";
+import { supabase } from "@/integrations/supabase/client";
 
 const AdminDashboardPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -50,6 +51,26 @@ const AdminDashboardPage = () => {
     }
     
     setIsAuthenticated(true);
+    
+    // Initialize Supabase bucket for images if needed
+    const initStorage = async () => {
+      try {
+        const { data, error } = await supabase.storage.createBucket('images', {
+          public: true,
+          fileSizeLimit: 10485760, // 10MB
+        });
+        
+        if (error && !error.message.includes('already exists')) {
+          console.warn("Error creating storage bucket:", error);
+        } else {
+          console.log("Storage bucket initialized:", data);
+        }
+      } catch (err) {
+        console.error("Error initializing storage:", err);
+      }
+    };
+    
+    initStorage();
   }, [navigate, toast]);
 
   const handleLogout = () => {
@@ -61,18 +82,21 @@ const AdminDashboardPage = () => {
     navigate("/admin");
   };
 
+  const handleArticleSave = async () => {
+    setEditingArticle(null);
+    setActiveTab("articles");
+    toast({
+      title: "Новину збережено",
+      description: "Зміни було успішно збережено."
+    });
+  };
+
   const renderContent = () => {
     if (editingArticle) {
       return (
         <ArticleEditor 
           existingArticle={editingArticle} 
-          onSave={() => {
-            setEditingArticle(null);
-            toast({
-              title: "Новину збережено",
-              description: "Зміни було успішно збережено."
-            });
-          }}
+          onSave={handleArticleSave}
           onCancel={() => setEditingArticle(null)}
         />
       );
@@ -96,9 +120,20 @@ const AdminDashboardPage = () => {
 
     switch (activeTab) {
       case "articles":
-        return <ArticlesList onEdit={setEditingArticle} onNew={() => setEditingArticle({} as NewsArticle)} />;
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">Управління новинами</h2>
+              <Button onClick={() => setEditingArticle({} as NewsArticle)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Додати новину
+              </Button>
+            </div>
+            <ArticlesList onEdit={setEditingArticle} onNew={() => setEditingArticle({} as NewsArticle)} />
+          </div>
+        );
       case "createArticle":
-        return <ArticleEditor onSave={() => setActiveTab("articles")} onCancel={() => setActiveTab("articles")} />;
+        return <ArticleEditor onSave={handleArticleSave} onCancel={() => setActiveTab("articles")} />;
       case "members":
         return <MembersList onEdit={setEditingMember} />;
       case "payments":
@@ -151,7 +186,7 @@ const AdminDashboardPage = () => {
                       onClick={() => setActiveTab("createArticle")} 
                       isActive={activeTab === "createArticle"}
                     >
-                      <Newspaper className="mr-2" size={18} />
+                      <Plus className="mr-2" size={18} />
                       <span>Створити новину</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -211,7 +246,7 @@ const AdminDashboardPage = () => {
             </SidebarContent>
           </Sidebar>
 
-          <SidebarInset className="p-6">
+          <SidebarInset className="p-6 w-full">
             <div className="mb-6">
               <h1 className="text-2xl font-bold">Система управління контентом</h1>
             </div>

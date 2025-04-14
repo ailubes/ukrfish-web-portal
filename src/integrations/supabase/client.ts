@@ -16,6 +16,12 @@ export const supabase = createClient<Database>(
     auth: {
       persistSession: true,
       autoRefreshToken: true,
+    },
+    global: {
+      // Disable default fetch interceptors for headers
+      headers: {
+        'X-Client-Info': 'supabase-js-web'
+      }
     }
   }
 );
