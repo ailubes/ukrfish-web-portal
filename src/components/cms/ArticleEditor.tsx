@@ -41,7 +41,7 @@ import { uploadImageToSupabase } from "@/utils/imageUtils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { supabase } from "@/utils/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 const HtmlPreview = ({ html }: { html: string }) => {
   return (
