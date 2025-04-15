@@ -51,6 +51,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        // Check if user is admin
+        supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data, error }) => {
+            if (!error && data) {
+              setIsAdmin(data.role === 'admin');
+            }
+          });
+      }
     });
 
     return () => subscription.unsubscribe();

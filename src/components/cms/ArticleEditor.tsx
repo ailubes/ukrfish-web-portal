@@ -175,6 +175,21 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       // Ensure we have an ID
       const articleId = article.id || uuidv4();
       
+      // Format the date properly to avoid "Invalid time value" errors
+      let publishDate: string;
+      try {
+        if (typeof article.publishDate === 'string') {
+          publishDate = new Date(article.publishDate).toISOString();
+        } else if (article.publishDate instanceof Date) {
+          publishDate = article.publishDate.toISOString();
+        } else {
+          publishDate = new Date().toISOString();
+        }
+      } catch (error) {
+        console.error("Date conversion error:", error);
+        publishDate = new Date().toISOString();
+      }
+      
       // Format data according to database schema
       const articleData = {
         id: articleId,
@@ -182,7 +197,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         content: article.content,
         summary: article.summary,
         image_url: article.imageUrl,
-        publish_date: new Date(article.publishDate).toISOString(),
+        publish_date: publishDate,
         category: article.category,
         author: article.author,
         tags: formattedTags
@@ -207,7 +222,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           content: article.content || "",
           summary: article.summary || "",
           imageUrl: article.imageUrl || "",
-          publishDate: article.publishDate || new Date(),
+          publishDate: new Date(publishDate),
           category: article.category || "Загальні новини",
           author: article.author || "Адміністратор",
           tags: formattedTags,

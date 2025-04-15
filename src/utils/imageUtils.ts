@@ -62,6 +62,10 @@ export const resizeImage = (file: File, maxSizeKB: number = 100): Promise<Blob> 
           }
         }, 'image/jpeg', 0.9);
       };
+      
+      img.onerror = () => {
+        reject(new Error('Failed to load image'));
+      };
     };
     reader.onerror = (error) => reject(error);
   });
@@ -70,6 +74,28 @@ export const resizeImage = (file: File, maxSizeKB: number = 100): Promise<Blob> 
 export const uploadImageToSupabase = async (file: File, bucketName: string = 'images'): Promise<string> => {
   try {
     console.log("Starting image upload process...");
+    
+    // Check if bucket exists, if not create it
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+    
+    if (!bucketExists) {
+      console.log(`Bucket ${bucketName} does not exist, attempting to create it...`);
+      try {
+        const { error } = await supabase.storage.createBucket(bucketName, {
+          public: true,
+          fileSizeLimit: 1024 * 1024 * 10, // 10MB
+        });
+        
+        if (error) {
+          console.error("Error creating bucket:", error);
+          throw error;
+        }
+      } catch (bucketError) {
+        console.error("Error creating bucket:", bucketError);
+        // Continue anyway, as the bucket might actually exist but we don't have permission to list buckets
+      }
+    }
     
     // Generate a unique filename
     const fileExt = file.name.split('.').pop() || 'jpg';
