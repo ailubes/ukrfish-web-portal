@@ -25,23 +25,36 @@ const CMSPage = () => {
         variant: "destructive",
       });
       navigate("/login");
-    } else if (!isAdmin) {
+      return;
+    } 
+    
+    if (!isAdmin) {
       toast({
         title: "Доступ заборонено",
         description: "У вас немає прав адміністратора",
         variant: "destructive",
       });
       navigate("/");
+      return;
     }
   }, [user, isAdmin, navigate, toast]);
-
-  if (!user || !isAdmin) {
-    return null;
-  }
 
   const navigateToDashboard = () => {
     navigate("/admin/dashboard");
   };
+
+  // Show loading state or nothing while checking auth
+  if (!user || !isAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-grow flex items-center justify-center">
+          <p>Перевірка доступу...</p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -53,7 +66,7 @@ const CMSPage = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold">Панель управління</h2>
-            <Button variant="outline" onClick={() => navigate("/admin/members")}>Вийти</Button>
+            <Button variant="outline" onClick={() => navigate("/member-profile")}>Повернутися до профілю</Button>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

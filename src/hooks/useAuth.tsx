@@ -48,22 +48,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
         // Check if user is admin
-        supabase
+        const { data, error } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', session.user.id)
-          .single()
-          .then(({ data, error }) => {
-            if (!error && data) {
-              setIsAdmin(data.role === 'admin');
-            }
-          });
+          .single();
+          
+        if (!error && data) {
+          setIsAdmin(data.role === 'admin');
+        } else {
+          setIsAdmin(false);
+        }
       }
     });
 

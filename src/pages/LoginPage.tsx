@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -15,7 +15,18 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { signIn, user, isAdmin } = useAuth();
+
+  // If user is already logged in, redirect to appropriate page
+  useEffect(() => {
+    if (user) {
+      if (isAdmin) {
+        navigate("/admin");
+      } else {
+        navigate("/member-profile");
+      }
+    }
+  }, [user, isAdmin, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +38,7 @@ const LoginPage = () => {
         title: "Успішний вхід",
         description: "Ви успішно увійшли в систему.",
       });
-      navigate("/admin/dashboard");
+      // Redirect will happen automatically thanks to the useEffect above
     } catch (error) {
       console.error("Login error:", error);
     } finally {

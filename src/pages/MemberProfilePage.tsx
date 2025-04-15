@@ -1,117 +1,36 @@
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Member } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, Link as LinkIcon, Mail, Phone, Save } from "lucide-react";
+import { ShieldAlert, User, Mail, Calendar } from "lucide-react";
 
 const MemberProfilePage = () => {
-  const [member, setMember] = useState<Member | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    website: "",
-    email: "",
-    phone: "",
-    logo: ""
-  });
-  const { toast } = useToast();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    // In a real app, we would fetch this from an API
-    const currentUser = localStorage.getItem('currentUser');
-    if (!currentUser) {
+    if (!user) {
       toast({
-        title: "Необхідна авторизація",
-        description: "Будь ласка, увійдіть в систему або зареєструйтесь",
-        variant: "destructive"
+        title: "Доступ заборонено",
+        description: "Будь ласка, увійдіть в систему",
+        variant: "destructive",
       });
       navigate("/login");
-      return;
     }
+  }, [user, navigate, toast]);
 
-    try {
-      const userData = JSON.parse(currentUser);
-      setMember(userData);
-      setFormData({
-        name: userData.name || "",
-        description: userData.description || "",
-        website: userData.website || "",
-        email: userData.email || "",
-        phone: userData.phone || "",
-        logo: userData.logo || "https://via.placeholder.com/150"
-      });
-    } catch (error) {
-      console.error("Error parsing user data:", error);
-      toast({
-        title: "Помилка",
-        description: "Не вдалося завантажити дані профілю",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [navigate, toast]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!member) return;
-    
-    // Update the member object
-    const updatedMember = {
-      ...member,
-      name: formData.name,
-      description: formData.description,
-      website: formData.website,
-      email: formData.email,
-      phone: formData.phone,
-      logo: formData.logo
-    };
-
-    // In a real app, we would send this to a backend
-    // For now, we'll update the localStorage
-    
-    // Update in members list
-    const members = JSON.parse(localStorage.getItem('members') || '[]');
-    const updatedMembers = members.map((m: Member) => 
-      m.id === member.id ? updatedMember : m
-    );
-    
-    localStorage.setItem('members', JSON.stringify(updatedMembers));
-    localStorage.setItem('currentUser', JSON.stringify(updatedMember));
-    
-    setMember(updatedMember);
-    
-    toast({
-      title: "Профіль оновлено",
-      description: "Ваші дані були успішно збережені"
-    });
-  };
-
-  if (loading) {
+  if (!user) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-grow flex items-center justify-center">
-          <p>Завантаження...</p>
+          <p>Перевірка доступу...</p>
         </main>
         <Footer />
       </div>
@@ -122,138 +41,114 @@ const MemberProfilePage = () => {
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <main className="flex-grow py-12 px-4 bg-gray-50">
-        <div className="container mx-auto max-w-4xl">
-          <h1 className="text-2xl font-bold mb-6">Профіль учасника</h1>
-          
-          <Card className="mb-6">
+      <main className="flex-grow container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-6">Особистий кабінет</h1>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="md:col-span-1">
             <CardHeader>
-              <CardTitle>Інформація про компанію</CardTitle>
+              <CardTitle>Профіль</CardTitle>
+              <CardDescription>Інформація про ваш обліковий запис</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="md:w-1/3">
-                    <div className="mb-4">
-                      <div className="w-full aspect-square max-w-[200px] mx-auto border border-gray-200 rounded-lg overflow-hidden flex items-center justify-center bg-white">
-                        <img 
-                          src={formData.logo || "https://via.placeholder.com/150"} 
-                          alt="Логотип компанії" 
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      </div>
-                      <div className="mt-2 text-center">
-                        <Label htmlFor="logo" className="block mb-2">Логотип (URL)</Label>
-                        <Input
-                          id="logo"
-                          name="logo"
-                          value={formData.logo}
-                          onChange={handleChange}
-                          placeholder="https://example.com/logo.png"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Введіть URL зображення</p>
-                      </div>
-                    </div>
-                    
-                    <div className="text-center bg-blue-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-blue-700">Тип членства</p>
-                      <p className="text-lg font-bold text-blue-900">{member?.membershipType}</p>
-                      <p className="text-xs text-blue-700 mt-1">
-                        Учасник з {member?.joinDate ? new Date(member.joinDate).toLocaleDateString() : "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="md:w-2/3 space-y-4">
-                    <div>
-                      <Label htmlFor="name">Назва компанії *</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        placeholder="Назва вашої компанії"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="description">Опис *</Label>
-                      <Textarea
-                        id="description"
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        placeholder="Додайте короткий опис вашої компанії"
-                        className="min-h-[150px]"
-                        required
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="relative">
-                        <Label htmlFor="website">Веб-сайт</Label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-                            <LinkIcon size={16} className="text-gray-400" />
-                          </div>
-                          <Input
-                            id="website"
-                            name="website"
-                            value={formData.website}
-                            onChange={handleChange}
-                            placeholder="https://yourwebsite.com"
-                            className="pl-10"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="relative">
-                        <Label htmlFor="email">Email *</Label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-                            <Mail size={16} className="text-gray-400" />
-                          </div>
-                          <Input
-                            id="email"
-                            name="email"
-                            type="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            placeholder="contact@company.com"
-                            className="pl-10"
-                            required
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="relative">
-                        <Label htmlFor="phone">Телефон</Label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-                            <Phone size={16} className="text-gray-400" />
-                          </div>
-                          <Input
-                            id="phone"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            placeholder="+380 XX XXX XX XX"
-                            className="pl-10"
-                          />
-                        </div>
-                      </div>
-                    </div>
+              <div className="flex flex-col space-y-4">
+                <div className="flex justify-center mb-4">
+                  <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center">
+                    <User size={40} className="text-blue-600" />
                   </div>
                 </div>
                 
-                <div className="flex justify-end">
-                  <Button type="submit">
-                    <Save size={16} className="mr-2" />
-                    Зберегти зміни
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex items-start">
+                    <Mail className="w-5 h-5 mr-2 text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p>{user.email}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <Calendar className="w-5 h-5 mr-2 text-gray-500" />
+                    <div>
+                      <p className="text-sm text-gray-500">Дата реєстрації</p>
+                      <p>{new Date(user.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  
+                  {isAdmin && (
+                    <div className="flex items-start">
+                      <ShieldAlert className="w-5 h-5 mr-2 text-green-600" />
+                      <div>
+                        <p className="font-semibold text-green-600">Адміністратор</p>
+                        <p className="text-sm text-gray-500">У вас є права адміністратора</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </form>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Панель користувача</CardTitle>
+              <CardDescription>Доступні дії та функції</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {isAdmin && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <h3 className="font-medium text-lg flex items-center text-green-700">
+                      <ShieldAlert className="mr-2 h-5 w-5" />
+                      Адміністративні інструменти
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Ви маєте доступ до інструментів адміністратора
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        onClick={() => navigate("/admin")}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Панель адміністратора
+                      </Button>
+                      <Button 
+                        onClick={() => navigate("/admin/dashboard")}
+                        variant="outline"
+                        className="text-green-600 border-green-600 hover:bg-green-50"
+                      >
+                        Розширена панель
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                  <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <h3 className="font-medium">Перегляд новин</h3>
+                    <p className="text-sm text-gray-500 mb-3">Ознайомтеся з останніми новинами</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate("/news")}
+                    >
+                      Перейти до новин
+                    </Button>
+                  </div>
+                  
+                  <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <h3 className="font-medium">Членство</h3>
+                    <p className="text-sm text-gray-500 mb-3">Інформація про членство у асоціації</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate("/members")}
+                    >
+                      Подробиці
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
