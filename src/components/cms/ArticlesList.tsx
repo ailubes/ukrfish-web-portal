@@ -41,10 +41,10 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
       }
 
       const formattedArticles: NewsArticle[] = data ? data.map(item => ({
-        id: item.id,
-        title: item.title,
-        content: item.content,
-        summary: item.summary,
+        id: item.id || '',
+        title: item.title || '',
+        content: item.content || '',
+        summary: item.summary || '',
         imageUrl: item.image_url || '',
         publishDate: new Date(item.publish_date || new Date()),
         category: item.category || 'Загальні новини',
@@ -75,7 +75,7 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
         const { error } = await supabase
           .from('news_articles')
           .delete()
-          .eq('id', id);
+          .eq('id', id as any);
 
         if (error) {
           throw error;
@@ -118,8 +118,8 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
           category: updatedArticle.category,
           author: updatedArticle.author,
           tags: updatedArticle.tags
-        })
-        .eq('id', updatedArticle.id);
+        } as any)
+        .eq('id', updatedArticle.id as any);
 
       if (error) {
         throw error;

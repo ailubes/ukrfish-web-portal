@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -8,7 +9,7 @@ import ArticleEditor from "../components/cms/ArticleEditor";
 import ArticlesList from "../components/cms/ArticlesList";
 import { useToast } from "@/hooks/use-toast";
 import { Users, LayoutDashboard } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 
 const CMSPage = () => {
@@ -37,6 +38,10 @@ const CMSPage = () => {
   if (!user || !isAdmin) {
     return null;
   }
+
+  const navigateToDashboard = () => {
+    navigate("/admin/dashboard");
+  };
 
   return (
     <div className="min-h-screen flex flex-col">

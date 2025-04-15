@@ -24,11 +24,6 @@ export const supabase = createClient<Database>(
       headers: {
         'X-Client-Info': 'supabase-js-web',
       },
-    },
-    // Set proper storage configuration
-    storage: {
-      // Set long-lived caching for static assets
-      persistSession: true
     }
   }
 );

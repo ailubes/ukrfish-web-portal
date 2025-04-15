@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -191,7 +192,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       
       const { error } = await supabase
         .from('news_articles')
-        .upsert(articleData);
+        .upsert(articleData as any);
 
       if (error) {
         console.error("Error saving article:", error);
