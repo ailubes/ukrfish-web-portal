@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -8,48 +8,89 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ArticleEditor from "../components/cms/ArticleEditor";
 import ArticlesList from "../components/cms/ArticlesList";
 import { useToast } from "@/hooks/use-toast";
-import { Users, LayoutDashboard } from "lucide-react";
+import { Users, LayoutDashboard, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
 
 const CMSPage = () => {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, user, loading, checkAdminStatus } = useAuth();
+  const [checkingAdmin, setCheckingAdmin] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!user) {
-      toast({
-        title: "Доступ заборонено",
-        description: "Будь ласка, увійдіть в систему",
-        variant: "destructive",
-      });
-      navigate("/login");
-      return;
-    } 
+    const checkAccess = async () => {
+      setCheckingAdmin(true);
+      
+      try {
+        if (!user) {
+          toast({
+            title: "Доступ заборонено",
+            description: "Будь ласка, увійдіть в систему",
+            variant: "destructive",
+          });
+          navigate("/login");
+          return;
+        }
+        
+        // Force a fresh check of admin status
+        const isUserAdmin = await checkAdminStatus();
+        console.log("Admin check result in CMSPage:", isUserAdmin);
+        
+        if (!isUserAdmin) {
+          toast({
+            title: "Доступ заборонено",
+            description: "У вас немає прав адміністратора",
+            variant: "destructive",
+          });
+          navigate("/");
+        }
+      } catch (error) {
+        console.error("Error in access check:", error);
+        toast({
+          title: "Помилка",
+          description: "Виникла помилка при перевірці доступу",
+          variant: "destructive",
+        });
+        navigate("/");
+      } finally {
+        setCheckingAdmin(false);
+      }
+    };
     
-    if (!isAdmin) {
-      toast({
-        title: "Доступ заборонено",
-        description: "У вас немає прав адміністратора",
-        variant: "destructive",
-      });
-      navigate("/");
-      return;
-    }
-  }, [user, isAdmin, navigate, toast]);
+    checkAccess();
+  }, [user, navigate, toast, checkAdminStatus]);
 
   const navigateToDashboard = () => {
     navigate("/admin/dashboard");
   };
 
-  // Show loading state or nothing while checking auth
+  // Show loading state while checking auth
+  if (loading || checkingAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-2" />
+            <p>Перевірка доступу адміністратора...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Don't render anything if not admin or not logged in
   if (!user || !isAdmin) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-grow flex items-center justify-center">
-          <p>Перевірка доступу...</p>
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-2">Доступ заборонено</h2>
+            <p className="mb-4">У вас немає прав адміністратора для доступу до цієї сторінки.</p>
+            <Button onClick={() => navigate("/")}>Повернутися на головну</Button>
+          </div>
         </main>
         <Footer />
       </div>

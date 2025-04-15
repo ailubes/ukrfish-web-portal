@@ -1,5 +1,5 @@
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -7,23 +7,54 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ShieldAlert, User, Mail, Calendar } from "lucide-react";
+import { ShieldAlert, User, Mail, Calendar, Loader2 } from "lucide-react";
 
 const MemberProfilePage = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading, checkAdminStatus } = useAuth();
+  const [checkingAdmin, setCheckingAdmin] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!user) {
-      toast({
-        title: "Доступ заборонено",
-        description: "Будь ласка, увійдіть в систему",
-        variant: "destructive",
-      });
-      navigate("/login");
-    }
-  }, [user, navigate, toast]);
+    const init = async () => {
+      if (!user) {
+        toast({
+          title: "Доступ заборонено",
+          description: "Будь ласка, увійдіть в систему",
+          variant: "destructive",
+        });
+        navigate("/login");
+        return;
+      }
+      
+      // Force a re-check of admin status
+      setCheckingAdmin(true);
+      try {
+        await checkAdminStatus();
+      } catch (error) {
+        console.error("Error checking admin status:", error);
+      } finally {
+        setCheckingAdmin(false);
+      }
+    };
+    
+    init();
+  }, [user, navigate, toast, checkAdminStatus]);
+
+  if (loading || checkingAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-2" />
+            <p>Завантаження профілю...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!user) {
     return (
