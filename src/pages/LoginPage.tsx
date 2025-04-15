@@ -6,54 +6,32 @@ import Footer from "../components/Footer";
 import { Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 const LoginPage = () => {
-  const [emailOrUsername, setEmailOrUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState(false);
-  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { signIn } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     
-    // For the admin CMS access
-    if (emailOrUsername === "admin" && password === "password") {
-      // Set admin status in localStorage
-      localStorage.setItem('isAdmin', 'true');
-      
+    try {
+      await signIn(email, password);
       toast({
         title: "Успішний вхід",
-        description: "Ви успішно увійшли як адміністратор."
+        description: "Ви успішно увійшли в систему.",
       });
-      navigate("/admin"); // Redirect to admin page
-      return;
-    }
-    
-    // Check if user exists in localStorage
-    const members = JSON.parse(localStorage.getItem('members') || '[]');
-    const user = members.find((m: any) => 
-      m.email === emailOrUsername || m.username === emailOrUsername
-    );
-    
-    if (user) {
-      // In a real app, we would properly validate the password
-      // For demo purposes, we'll just accept any password
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      
-      toast({
-        title: "Успішний вхід",
-        description: "Ви успішно увійшли в систему."
-      });
-      navigate("/member-profile");
-    } else {
-      toast({
-        title: "Помилка входу",
-        description: "Користувача не знайдено. Спробуйте зареєструватися.",
-        variant: "destructive"
-      });
+      navigate("/admin/dashboard");
+    } catch (error) {
+      console.error("Login error:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -67,30 +45,28 @@ const LoginPage = () => {
             <div className="p-6">
               <div className="text-center mb-6">
                 <h2 className="text-2xl font-bold text-blue-primary">
-                  {isLoginMode ? "Вхід в особистий кабінет" : "Реєстрація"}
+                  Вхід в особистий кабінет
                 </h2>
                 <p className="text-gray-text mt-2">
-                  {isLoginMode
-                    ? "Увійдіть, щоб отримати доступ до вашого облікового запису"
-                    : "Створіть обліковий запис для доступу до можливостей ГС \"Риба України\""}
+                  Увійдіть, щоб отримати доступ до вашого облікового запису
                 </p>
               </div>
 
               <form onSubmit={handleSubmit}>
                 <div className="mb-4">
                   <label
-                    htmlFor="emailOrUsername"
+                    htmlFor="email"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    {isLoginMode ? "Email або Логін" : "Email"}
+                    Email
                   </label>
                   <input
-                    type={isLoginMode ? "text" : "email"}
-                    id="emailOrUsername"
-                    value={emailOrUsername}
-                    onChange={(e) => setEmailOrUsername(e.target.value)}
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-primary"
-                    placeholder={isLoginMode ? "ваш@email.com або логін" : "ваш@email.com"}
+                    placeholder="your@email.com"
                     required
                   />
                 </div>
@@ -126,47 +102,18 @@ const LoginPage = () => {
                   </div>
                 </div>
 
-                {isLoginMode && (
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="remember"
-                        checked={remember}
-                        onChange={() => setRemember(!remember)}
-                        className="h-4 w-4 text-blue-primary border-gray-300 rounded focus:ring-blue-primary"
-                      />
-                      <label
-                        htmlFor="remember"
-                        className="ml-2 block text-sm text-gray-700"
-                      >
-                        Запам'ятати мене
-                      </label>
-                    </div>
-                    <div className="text-sm">
-                      <Link
-                        to="/forgot-password"
-                        className="text-blue-primary hover:text-blue-800"
-                      >
-                        Забули пароль?
-                      </Link>
-                    </div>
-                  </div>
-                )}
-
                 <Button
                   type="submit"
-                  className="w-full bg-blue-primary text-white py-2 px-4 rounded-md hover:bg-blue-800 transition-colors"
+                  className="w-full"
+                  disabled={isLoading}
                 >
-                  {isLoginMode ? "Увійти" : "Зареєструватися"}
+                  {isLoading ? "Вхід..." : "Увійти"}
                 </Button>
               </form>
 
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-600">
-                  {isLoginMode
-                    ? "Не маєте облікового запису?"
-                    : "Вже маєте обліковий запис?"}{" "}
+                  Не маєте облікового запису?{" "}
                   <Link
                     to="/register"
                     className="text-blue-primary hover:text-blue-800 font-medium"
@@ -175,14 +122,6 @@ const LoginPage = () => {
                   </Link>
                 </p>
               </div>
-              
-              {isLoginMode && (
-                <div className="mt-4 text-center">
-                  <p className="text-xs text-gray-500">
-                    Для входу в панель адміністратора використовуйте: логін <span className="font-semibold">admin</span> і пароль <span className="font-semibold">password</span>
-                  </p>
-                </div>
-              )}
             </div>
           </div>
         </div>

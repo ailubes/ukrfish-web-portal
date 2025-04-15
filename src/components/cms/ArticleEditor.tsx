@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -174,35 +173,25 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
 
       // Ensure we have an ID
       const articleId = article.id || uuidv4();
-
-      const completeArticle: NewsArticle = {
+      
+      // Format data according to database schema
+      const articleData = {
         id: articleId,
-        title: article.title || "",
-        content: article.content || "",
-        summary: article.summary || "",
-        imageUrl: article.imageUrl || "",
-        publishDate: article.publishDate || new Date(),
-        category: article.category || "Загальні новини",
-        author: article.author || "Адміністратор",
-        tags: formattedTags,
+        title: article.title,
+        content: article.content,
+        summary: article.summary,
+        image_url: article.imageUrl,
+        publish_date: new Date(article.publishDate).toISOString(),
+        category: article.category,
+        author: article.author,
+        tags: formattedTags
       };
 
-      console.log("Saving article:", completeArticle);
+      console.log("Saving article:", articleData);
       
-      // Save to Supabase with a direct update/insert for the specific table
       const { error } = await supabase
         .from('news_articles')
-        .upsert({
-          id: completeArticle.id,
-          title: completeArticle.title,
-          content: completeArticle.content,
-          summary: completeArticle.summary,
-          image_url: completeArticle.imageUrl,
-          publish_date: new Date(completeArticle.publishDate).toISOString(),
-          category: completeArticle.category,
-          author: completeArticle.author,
-          tags: completeArticle.tags
-        });
+        .upsert(articleData);
 
       if (error) {
         console.error("Error saving article:", error);
@@ -211,7 +200,17 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
 
       // If article saved successfully
       if (onSave) {
-        onSave(completeArticle);
+        onSave({
+          id: articleId,
+          title: article.title || "",
+          content: article.content || "",
+          summary: article.summary || "",
+          imageUrl: article.imageUrl || "",
+          publishDate: article.publishDate || new Date(),
+          category: article.category || "Загальні новини",
+          author: article.author || "Адміністратор",
+          tags: formattedTags,
+        });
       }
 
       toast({
