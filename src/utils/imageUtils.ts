@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -75,32 +74,10 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
   try {
     console.log("Starting image upload process...");
     
-    // Check if bucket exists, if not create it
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
-    
-    if (!bucketExists) {
-      console.log(`Bucket ${bucketName} does not exist, attempting to create it...`);
-      try {
-        const { error } = await supabase.storage.createBucket(bucketName, {
-          public: true,
-          fileSizeLimit: 1024 * 1024 * 10, // 10MB
-        });
-        
-        if (error) {
-          console.error("Error creating bucket:", error);
-          throw error;
-        }
-      } catch (bucketError) {
-        console.error("Error creating bucket:", bucketError);
-        // Continue anyway, as the bucket might actually exist but we don't have permission to list buckets
-      }
-    }
-    
     // Generate a unique filename
     const fileExt = file.name.split('.').pop() || 'jpg';
     const fileName = `${uuidv4()}.${fileExt}`;
-    const filePath = `${fileName}`;
+    const filePath = fileName;
 
     console.log("Uploading file:", filePath);
     
@@ -116,7 +93,7 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
       }
     }
     
-    // Upload to Supabase with public access
+    // Upload to Supabase 
     const { data, error } = await supabase.storage
       .from(bucketName)
       .upload(filePath, fileToUpload, {

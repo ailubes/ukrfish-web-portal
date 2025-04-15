@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -40,7 +39,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 
-// Add CSS for editor preview styling
 const editorStyles = `
   .editor-preview h1 {
     font-size: 2em;
@@ -164,7 +162,6 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     try {
       const formattedTags = formatTags(tagsInput);
 
-      // Make sure we have the current content from the editor
       if (editorRef.current) {
         setArticle(prev => ({
           ...prev,
@@ -172,10 +169,8 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         }));
       }
 
-      // Ensure we have an ID
       const articleId = article.id || uuidv4();
       
-      // Format the date properly to avoid "Invalid time value" errors
       let publishDate: string;
       try {
         if (typeof article.publishDate === 'string') {
@@ -190,7 +185,6 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         publishDate = new Date().toISOString();
       }
       
-      // Format data according to database schema
       const articleData = {
         id: articleId,
         title: article.title,
@@ -214,7 +208,6 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         throw error;
       }
 
-      // If article saved successfully
       if (onSave) {
         onSave({
           id: articleId,
@@ -292,7 +285,6 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
             selection.removeAllRanges();
             selection.addRange(range);
             
-            // Update the content state
             setArticle(prev => ({ 
               ...prev, 
               content: editorRef.current?.innerHTML || prev.content || "" 
@@ -316,7 +308,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         console.error("Image upload error:", error);
         toast({
           title: "Помилка завантаження",
-          description: "Не вдалося завантажити зображення.",
+          description: "Не вдалося завантажити зображення. Перевірте підключення або розмір файлу.",
           variant: "destructive",
         });
       } finally {
@@ -367,23 +359,18 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     }
   };
 
-  // Execute commands for rich text editing
   const executeCommand = (command: string, value: string = '') => {
-    // Focus the editor if it's not already focused
     if (editorRef.current && document.activeElement !== editorRef.current) {
       editorRef.current.focus();
     }
     
-    // Execute the command
     document.execCommand(command, false, value);
     
-    // Update the content state
     if (editorRef.current) {
       setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
     }
   };
 
-  // Fixed formatBlock function to properly handle headings and paragraphs
   const formatBlock = (tag: string) => {
     if (editorRef.current) {
       executeCommand('formatBlock', `<${tag}>`);
@@ -429,15 +416,11 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     </Button>
   );
   
-  // Initialize editor when component mounts
   useEffect(() => {
     if (editorRef.current) {
-      // Make sure contentEditable is set
       editorRef.current.contentEditable = 'true';
       
-      // Set up focus handling
       const handleFocus = () => {
-        // Ensure document.execCommand works in this context 
         if (!document.queryCommandSupported('insertHTML')) {
           console.warn('HTML editing is not fully supported in this browser');
         }
@@ -451,9 +434,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     }
   }, []);
 
-  // Apply custom styling to the editor content
   useEffect(() => {
-    // Add the editor styles to the document head
     const styleElement = document.createElement('style');
     styleElement.innerHTML = editorStyles;
     document.head.appendChild(styleElement);
