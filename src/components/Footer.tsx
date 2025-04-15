@@ -1,20 +1,13 @@
-
 import { Link } from "react-router-dom";
 import { Facebook, Send, Mail, PhoneCall } from "lucide-react";
-
 const Footer = () => {
-  return (
-    <footer className="bg-blue-primary text-white">
+  return <footer className="bg-blue-primary text-white">
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Logo and description */}
           <div className="col-span-1 md:col-span-1">
             <Link to="/" className="inline-block mb-4">
-              <img
-                src="/lovable-uploads/53d6aaaa-d701-48e1-b151-b1fa9058576c.png"
-                alt="UKRFISH Logo"
-                className="h-12 w-auto bg-white rounded-md p-1"
-              />
+              <img src="/lovable-uploads/53d6aaaa-d701-48e1-b151-b1fa9058576c.png" alt="UKRFISH Logo" className="h-12 w-auto bg-white rounded-md p-1" />
             </Link>
             <p className="text-sm mt-2">
               ГС "Риба України" - об'єднання професіоналів рибної галузі для сталого розвитку 
@@ -55,17 +48,13 @@ const Footer = () => {
             <ul className="space-y-2">
               <li className="flex items-center">
                 <PhoneCall size={16} className="mr-2" />
-                <span>+380 44 123 4567</span>
+                <span>+380 50 879 6803</span>
               </li>
               <li className="flex items-center">
                 <Mail size={16} className="mr-2" />
-                <a href="mailto:info@ukrfish.org" className="hover:text-yellow-accent transition-colors">
-                  info@ukrfish.org
-                </a>
+                <a href="mailto:info@ukrfish.org" className="hover:text-yellow-accent transition-colors">ngoukrfish@gmail.com</a>
               </li>
-              <li>
-                м. Київ, вул. Рибна, 123, 04123
-              </li>
+              <li>Київська обл., Фастівський р-н, с. Віта-поштова, вул. Відродження, 5</li>
             </ul>
           </div>
 
@@ -83,15 +72,8 @@ const Footer = () => {
             
             <h3 className="text-lg font-bold mb-2 text-yellow-accent">Розсилка новин</h3>
             <div className="flex">
-              <input
-                type="email"
-                placeholder="Ваш email"
-                className="px-3 py-2 rounded-l-md text-gray-800 w-full focus:outline-none"
-              />
-              <button
-                type="button"
-                className="bg-yellow-accent text-blue-primary px-4 py-2 rounded-r-md hover:bg-yellow-400 transition-colors"
-              >
+              <input type="email" placeholder="Ваш email" className="px-3 py-2 rounded-l-md text-gray-800 w-full focus:outline-none" />
+              <button type="button" className="bg-yellow-accent text-blue-primary px-4 py-2 rounded-r-md hover:bg-yellow-400 transition-colors">
                 <Send size={16} />
               </button>
             </div>
@@ -104,8 +86,6 @@ const Footer = () => {
           </p>
         </div>
       </div>
-    </footer>
-  );
+    </footer>;
 };
-
 export default Footer;
