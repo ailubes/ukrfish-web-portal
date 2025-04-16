@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -39,6 +38,7 @@ import { uploadImageToSupabase } from "@/utils/imageUtils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const editorStyles = `
   .editor-preview h1 {
@@ -118,11 +118,13 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
   const { toast } = useToast();
+  const { user, isAdmin } = useAuth();
   const isEditing = !!existingArticle?.id;
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const [saveAttempted, setSaveAttempted] = useState(false);
 
   useEffect(() => {
     if (existingArticle) {
@@ -130,6 +132,39 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       setTagsInput(existingArticle.tags?.join(", ") || "");
     }
   }, [existingArticle]);
+
+  useEffect(() => {
+    if (saveAttempted) return; // Don't overwrite with local storage after save attempt
+    
+    const savedContent = localStorage.getItem('article-draft');
+    if (savedContent && !existingArticle?.id) {
+      try {
+        const parsedContent = JSON.parse(savedContent);
+        if (parsedContent) {
+          setArticle(prev => ({...prev, ...parsedContent}));
+          if (parsedContent.tagsInput) {
+            setTagsInput(parsedContent.tagsInput);
+          }
+          toast({
+            title: "Чернетку відновлено",
+            description: "Відновлено незбережену статтю з попереднього сеансу",
+          });
+        }
+      } catch (e) {
+        console.error("Error parsing saved content:", e);
+      }
+    }
+    
+    return () => {
+      if (!saveAttempted && !existingArticle?.id) {
+        // Only save if not editing an existing article and not after save attempt
+        localStorage.setItem('article-draft', JSON.stringify({
+          ...article,
+          tagsInput,
+        }));
+      }
+    };
+  }, [article, tagsInput, existingArticle, saveAttempted]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -159,6 +194,16 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       return;
     }
 
+    if (!user || !isAdmin) {
+      toast({
+        title: "Помилка авторизації",
+        description: "Ви повинні бути авторизовані як адміністратор щоб зберегти статтю.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaveAttempted(true);
     setIsSubmitting(true);
 
     try {
@@ -220,6 +265,11 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       if (error) {
         console.error("Error saving article:", error);
         throw error;
+      }
+
+      // Clear draft from localStorage on successful save
+      if (!isEditing) {
+        localStorage.removeItem('article-draft');
       }
 
       if (onSave) {
@@ -472,293 +522,303 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         </div>
       )}
 
-      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label htmlFor="title">Заголовок *</Label>
-            <Input
-              id="title"
-              name="title"
-              value={article.title || ""}
-              onChange={handleChange}
-              placeholder="Введіть заголовок новини"
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="category">Категорія</Label>
-            <Select
-              value={article.category || "Загальні новини"}
-              onValueChange={(value) => handleSelectChange("category", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Виберіть категорію" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Загальні новини">Загальні новини</SelectItem>
-                <SelectItem value="Новини галузі">Новини галузі</SelectItem>
-                <SelectItem value="Законодавство">Законодавство</SelectItem>
-                <SelectItem value="Міжнародна співпраця">Міжнародна співпраця</SelectItem>
-                <SelectItem value="Події та заходи">Події та заходи</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      {!user || !isAdmin ? (
+        <div className="text-center py-8">
+          <h3 className="text-lg font-medium text-red-600 mb-2">Доступ заборонено</h3>
+          <p className="mb-4">Ви повинні бути авторизовані як адміністратор щоб редагувати статті.</p>
+          <Button onClick={() => window.location.href = "/login"}>
+            Перейти до входу
+          </Button>
         </div>
-
-        <div>
-          <Label htmlFor="summary">Короткий опис *</Label>
-          <Textarea
-            id="summary"
-            name="summary"
-            value={article.summary || ""}
-            onChange={handleChange}
-            placeholder="Введіть короткий опис статті (анонс)"
-            required
-            rows={2}
-          />
-        </div>
-        
-        <div>
-          <Label htmlFor="content">Зміст статті *</Label>
-          <Tabs defaultValue="editor">
-            <TabsList className="mb-2">
-              <TabsTrigger value="editor">Редактор</TabsTrigger>
-              <TabsTrigger value="html">HTML</TabsTrigger>
-              <TabsTrigger value="preview">Попередній перегляд</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="editor" className="min-h-[400px]">
-              <div className="border rounded-md mb-2 bg-white">
-                <div className="flex flex-wrap gap-0.5 items-center p-2 border-b bg-slate-50">
-                  <ToggleGroup type="multiple" className="flex-wrap">
-                    <ToggleGroupItem value="bold" aria-label="Bold" title="Жирний" onClick={() => executeCommand('bold')}>
-                      <Bold size={16} />
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="italic" aria-label="Italic" title="Курсив" onClick={() => executeCommand('italic')}>
-                      <Italic size={16} />
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="underline" aria-label="Underline" title="Підкреслений" onClick={() => executeCommand('underline')}>
-                      <Underline size={16} />
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                  
-                  <Separator orientation="vertical" className="mx-1 h-6" />
-                  
-                  <ToggleGroup type="single" className="flex-wrap">
-                    <ToggleGroupItem value="h1" aria-label="Heading 1" title="Заголовок 1" 
-                      onClick={() => formatBlock('h1')}>
-                      <Heading1 size={16} />
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="h2" aria-label="Heading 2" title="Заголовок 2" 
-                      onClick={() => formatBlock('h2')}>
-                      <Heading2 size={16} />
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="h3" aria-label="Heading 3" title="Заголовок 3" 
-                      onClick={() => formatBlock('h3')}>
-                      <Heading3 size={16} />
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="p" aria-label="Paragraph" title="Параграф" 
-                      onClick={() => formatBlock('p')}>
-                      P
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                  
-                  <Separator orientation="vertical" className="mx-1 h-6" />
-                  
-                  <ToggleGroup type="single" className="flex-wrap">
-                    <ToggleGroupItem value="alignLeft" aria-label="Align Left" title="Вирівняти ліворуч" onClick={() => executeCommand('justifyLeft')}>
-                      <AlignLeft size={16} />
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="alignCenter" aria-label="Align Center" title="Вирівняти по центру" onClick={() => executeCommand('justifyCenter')}>
-                      <AlignCenter size={16} />
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="alignRight" aria-label="Align Right" title="Вирівняти праворуч" onClick={() => executeCommand('justifyRight')}>
-                      <AlignRight size={16} />
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                  
-                  <Separator orientation="vertical" className="mx-1 h-6" />
-                  
-                  <ToggleGroup type="multiple" className="flex-wrap">
-                    <ToggleGroupItem value="ul" aria-label="Unordered List" title="Маркований список" 
-                      onClick={() => executeCommand('insertUnorderedList')}>
-                      <List size={16} />
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="ol" aria-label="Ordered List" title="Нумерований список" 
-                      onClick={() => executeCommand('insertOrderedList')}>
-                      <ListOrdered size={16} />
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                  
-                  <Separator orientation="vertical" className="mx-1 h-6" />
-                  
-                  <Button variant="ghost" size="icon" onClick={insertLink} title="Вставити посилання">
-                    <Link size={16} />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => executeCommand('unlink')} title="Видалити посилання">
-                    <Unlink size={16} />
-                  </Button>
-                  
-                  <Separator orientation="vertical" className="mx-1 h-6" />
-                  
-                  <Button variant="ghost" size="icon" onClick={handleInlineImageUpload} title="Вставити зображення">
-                    <ImagePlus size={16} />
-                  </Button>
-                  <input 
-                    type="file"
-                    className="hidden"
-                    ref={imageInputRef}
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                  />
-                  
-                  <Separator orientation="vertical" className="mx-1 h-6" />
-                  
-                  <Button variant="ghost" size="icon" onClick={() => executeCommand('undo')} title="Відмінити">
-                    <Undo size={16} />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => executeCommand('redo')} title="Повторити">
-                    <Redo size={16} />
-                  </Button>
-                </div>
-                
-                <div
-                  ref={editorRef}
-                  className="p-4 min-h-[400px] focus:outline-none editor-content"
-                  contentEditable={true}
-                  suppressContentEditableWarning={true}
-                  dangerouslySetInnerHTML={{ __html: article.content || "" }}
-                  onKeyUp={handleKeyUp}
-                  onPaste={handlePaste}
-                  onBlur={handleKeyUp}
-                />
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="html">
-              <Textarea
-                id="content"
-                name="content"
-                value={article.content || ""}
-                onChange={handleChange}
-                placeholder="<p>Введіть HTML-код статті</p>"
-                required
-                rows={20}
-                className="font-mono"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Редагування вмісту в HTML-форматі. Використовуйте теги p, h1-h6, ul, ol, li, strong, em, a, img тощо.
-              </p>
-            </TabsContent>
-            
-            <TabsContent value="preview">
-              <HtmlPreview html={article.content || ""} />
-              <p className="text-xs text-gray-500 mt-1">
-                Попередній перегляд відформатованого вмісту.
-              </p>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label htmlFor="imageUrl">URL зображення обкладинки або файл</Label>
-            <div className="relative flex items-center">
+      ) : (
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label htmlFor="title">Заголовок *</Label>
               <Input
-                id="imageUrl"
-                name="imageUrl"
-                value={article.imageUrl || ""}
-                onChange={(e) => setArticle(prev => ({ ...prev, imageUrl: e.target.value }))}
-                placeholder="https://example.com/image.jpg"
-                className="pr-10"
-              />
-              <button 
-                type="button"
-                onClick={handleCoverImageUpload}
-                className="absolute right-3 cursor-pointer"
-                disabled={isImageUploading}
-              >
-                <ImagePlus className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-              </button>
-              <input 
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
-                ref={coverImageInputRef}
-                onChange={insertCoverImage}
+                id="title"
+                name="title"
+                value={article.title || ""}
+                onChange={handleChange}
+                placeholder="Введіть заголовок новини"
+                required
               />
             </div>
-            {imageFile && (
-              <p className="text-xs text-green-600 mt-1">
-                Файл: {imageFile.name} (Завантажено)
-              </p>
-            )}
-            {article.imageUrl && (
-              <div className="mt-2">
-                <img 
-                  src={article.imageUrl} 
-                  alt="Обкладинка" 
-                  className="max-h-32 object-contain border rounded"
+
+            <div>
+              <Label htmlFor="category">Категорія</Label>
+              <Select
+                value={article.category || "Загальні новини"}
+                onValueChange={(value) => handleSelectChange("category", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Виберіть категорію" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Загальні новини">Загальні новини</SelectItem>
+                  <SelectItem value="Новини галузі">Новини галузі</SelectItem>
+                  <SelectItem value="Законодавство">Законодавство</SelectItem>
+                  <SelectItem value="Міжнародна співпраця">Міжнародна співпраця</SelectItem>
+                  <SelectItem value="Події та заходи">Події та заходи</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="summary">Короткий опис *</Label>
+            <Textarea
+              id="summary"
+              name="summary"
+              value={article.summary || ""}
+              onChange={handleChange}
+              placeholder="Введіть короткий опис статті (анонс)"
+              required
+              rows={2}
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="content">Зміст статті *</Label>
+            <Tabs defaultValue="editor">
+              <TabsList className="mb-2">
+                <TabsTrigger value="editor">Редактор</TabsTrigger>
+                <TabsTrigger value="html">HTML</TabsTrigger>
+                <TabsTrigger value="preview">Попередній перегляд</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="editor" className="min-h-[400px]">
+                <div className="border rounded-md mb-2 bg-white">
+                  <div className="flex flex-wrap gap-0.5 items-center p-2 border-b bg-slate-50">
+                    <ToggleGroup type="multiple" className="flex-wrap">
+                      <ToggleGroupItem value="bold" aria-label="Bold" title="Жирний" onClick={() => executeCommand('bold')}>
+                        <Bold size={16} />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="italic" aria-label="Italic" title="Курсив" onClick={() => executeCommand('italic')}>
+                        <Italic size={16} />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="underline" aria-label="Underline" title="Підкреслений" onClick={() => executeCommand('underline')}>
+                        <Underline size={16} />
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                    
+                    <Separator orientation="vertical" className="mx-1 h-6" />
+                    
+                    <ToggleGroup type="single" className="flex-wrap">
+                      <ToggleGroupItem value="h1" aria-label="Heading 1" title="Заголовок 1" 
+                        onClick={() => formatBlock('h1')}>
+                        <Heading1 size={16} />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="h2" aria-label="Heading 2" title="Заголовок 2" 
+                        onClick={() => formatBlock('h2')}>
+                        <Heading2 size={16} />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="h3" aria-label="Heading 3" title="Заголовок 3" 
+                        onClick={() => formatBlock('h3')}>
+                        <Heading3 size={16} />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="p" aria-label="Paragraph" title="Параграф" 
+                        onClick={() => formatBlock('p')}>
+                        P
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                    
+                    <Separator orientation="vertical" className="mx-1 h-6" />
+                    
+                    <ToggleGroup type="single" className="flex-wrap">
+                      <ToggleGroupItem value="alignLeft" aria-label="Align Left" title="Вирівняти ліворуч" onClick={() => executeCommand('justifyLeft')}>
+                        <AlignLeft size={16} />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="alignCenter" aria-label="Align Center" title="Вирівняти по центру" onClick={() => executeCommand('justifyCenter')}>
+                        <AlignCenter size={16} />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="alignRight" aria-label="Align Right" title="Вирівняти праворуч" onClick={() => executeCommand('justifyRight')}>
+                        <AlignRight size={16} />
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                    
+                    <Separator orientation="vertical" className="mx-1 h-6" />
+                    
+                    <ToggleGroup type="multiple" className="flex-wrap">
+                      <ToggleGroupItem value="ul" aria-label="Unordered List" title="Маркований список" 
+                        onClick={() => executeCommand('insertUnorderedList')}>
+                        <List size={16} />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="ol" aria-label="Ordered List" title="Нумерований список" 
+                        onClick={() => executeCommand('insertOrderedList')}>
+                        <ListOrdered size={16} />
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                    
+                    <Separator orientation="vertical" className="mx-1 h-6" />
+                    
+                    <Button variant="ghost" size="icon" onClick={insertLink} title="Вставити посилання">
+                      <Link size={16} />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => executeCommand('unlink')} title="Видалити посилання">
+                      <Unlink size={16} />
+                    </Button>
+                    
+                    <Separator orientation="vertical" className="mx-1 h-6" />
+                    
+                    <Button variant="ghost" size="icon" onClick={handleInlineImageUpload} title="Вставити зображення">
+                      <ImagePlus size={16} />
+                    </Button>
+                    <input 
+                      type="file"
+                      className="hidden"
+                      ref={imageInputRef}
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                    />
+                    
+                    <Separator orientation="vertical" className="mx-1 h-6" />
+                    
+                    <Button variant="ghost" size="icon" onClick={() => executeCommand('undo')} title="Відмінити">
+                      <Undo size={16} />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => executeCommand('redo')} title="Повторити">
+                      <Redo size={16} />
+                    </Button>
+                  </div>
+                  
+                  <div
+                    ref={editorRef}
+                    className="p-4 min-h-[400px] focus:outline-none editor-content"
+                    contentEditable={true}
+                    suppressContentEditableWarning={true}
+                    dangerouslySetInnerHTML={{ __html: article.content || "" }}
+                    onKeyUp={handleKeyUp}
+                    onPaste={handlePaste}
+                    onBlur={handleKeyUp}
+                  />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="html">
+                <Textarea
+                  id="content"
+                  name="content"
+                  value={article.content || ""}
+                  onChange={handleChange}
+                  placeholder="<p>Введіть HTML-код статті</p>"
+                  required
+                  rows={20}
+                  className="font-mono"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Редагування вмісту в HTML-форматі. Використовуйте теги p, h1-h6, ul, ol, li, strong, em, a, img тощо.
+                </p>
+              </TabsContent>
+              
+              <TabsContent value="preview">
+                <HtmlPreview html={article.content || ""} />
+                <p className="text-xs text-gray-500 mt-1">
+                  Попередній перегляд відформатованого вмісту.
+                </p>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label htmlFor="imageUrl">URL зображення обкладинки або файл</Label>
+              <div className="relative flex items-center">
+                <Input
+                  id="imageUrl"
+                  name="imageUrl"
+                  value={article.imageUrl || ""}
+                  onChange={(e) => setArticle(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  placeholder="https://example.com/image.jpg"
+                  className="pr-10"
+                />
+                <button 
+                  type="button"
+                  onClick={handleCoverImageUpload}
+                  className="absolute right-3 cursor-pointer"
+                  disabled={isImageUploading}
+                >
+                  <ImagePlus className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                </button>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  ref={coverImageInputRef}
+                  onChange={insertCoverImage}
                 />
               </div>
+              {imageFile && (
+                <p className="text-xs text-green-600 mt-1">
+                  Файл: {imageFile.name} (Завантажено)
+                </p>
+              )}
+              {article.imageUrl && (
+                <div className="mt-2">
+                  <img 
+                    src={article.imageUrl} 
+                    alt="Обкладинка" 
+                    className="max-h-32 object-contain border rounded"
+                  />
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Введіть URL або завантажте зображення обкладинки
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="tags">Теги</Label>
+              <Input
+                id="tags"
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                placeholder="рибальство, аквакультура, законодавство"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Вводьте теги через кому
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label htmlFor="author">Автор</Label>
+              <Input
+                id="author"
+                name="author"
+                value={article.author || ""}
+                onChange={handleChange}
+                placeholder="Ім'я автора"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="publishDate">Дата публікації</Label>
+              <Input
+                id="publishDate"
+                name="publishDate"
+                type="date"
+                value={
+                  article.publishDate
+                    ? new Date(article.publishDate).toISOString().split("T")[0]
+                    : new Date().toISOString().split("T")[0]
+                }
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            {onCancel && (
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Скасувати
+              </Button>
             )}
-            <p className="text-xs text-gray-500 mt-1">
-              Введіть URL або завантажте зображення обкладинки
-            </p>
+            {renderSubmitButton()}
           </div>
-
-          <div>
-            <Label htmlFor="tags">Теги</Label>
-            <Input
-              id="tags"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="рибальство, аквакультура, законодавство"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Вводьте теги через кому
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label htmlFor="author">Автор</Label>
-            <Input
-              id="author"
-              name="author"
-              value={article.author || ""}
-              onChange={handleChange}
-              placeholder="Ім'я автора"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="publishDate">Дата публікації</Label>
-            <Input
-              id="publishDate"
-              name="publishDate"
-              type="date"
-              value={
-                article.publishDate
-                  ? new Date(article.publishDate).toISOString().split("T")[0]
-                  : new Date().toISOString().split("T")[0]
-              }
-              onChange={handleChange}
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2">
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Скасувати
-            </Button>
-          )}
-          {renderSubmitButton()}
-        </div>
-      </form>
+        </form>
+      )}
     </div>
   );
 };

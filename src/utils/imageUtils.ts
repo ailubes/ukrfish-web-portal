@@ -75,6 +75,28 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
   try {
     console.log("Starting image upload process...");
     
+    // Check authentication status first
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('Authentication required to upload images');
+    }
+    
+    // Check user role (admin only)
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single();
+    
+    if (profileError) {
+      console.error("Error checking user role:", profileError);
+      throw new Error('Could not verify admin privileges');
+    }
+    
+    if (userProfile?.role !== 'admin') {
+      throw new Error('Admin privileges required to upload images');
+    }
+    
     // Generate a unique filename
     const fileExt = file.name.split('.').pop() || 'jpg';
     const fileName = `${uuidv4()}.${fileExt}`;
@@ -91,32 +113,6 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
         console.log("Image resized for upload:", fileToUpload.size / 1024, "KB");
       } catch (resizeError) {
         console.warn("Could not resize image, uploading original:", resizeError);
-      }
-    }
-    
-    // Check if the images bucket exists, if not create it
-    const { data: buckets, error: bucketsError } = await supabase
-      .storage
-      .listBuckets();
-      
-    if (bucketsError) {
-      console.error("Error listing buckets:", bucketsError);
-      throw bucketsError;
-    }
-    
-    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
-    if (!bucketExists) {
-      console.log(`Bucket '${bucketName}' doesn't exist, creating it...`);
-      const { error: createBucketError } = await supabase
-        .storage
-        .createBucket(bucketName, {
-          public: true,
-          fileSizeLimit: 5242880, // 5MB
-        });
-        
-      if (createBucketError) {
-        console.error("Error creating bucket:", createBucketError);
-        throw createBucketError;
       }
     }
     

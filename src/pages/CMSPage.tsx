@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -19,6 +18,13 @@ const CMSPage = () => {
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Force refresh on component unmount to ensure user authentication is accurate
+    return () => {
+      checkAdminStatus();
+    }
+  }, [checkAdminStatus]);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -109,7 +115,8 @@ const CMSPage = () => {
           <div className="text-center">
             <h2 className="text-xl font-semibold mb-2">Доступ заборонено</h2>
             <p className="mb-4">У вас немає прав адміністратора для доступу до цієї сторінки.</p>
-            <Button onClick={() => navigate("/")}>Повернутися на головну</Button>
+            <Button onClick={() => navigate("/login")}>Увійти в систему</Button>
+            <Button onClick={() => navigate("/")} variant="outline" className="ml-2">Повернутися на головну</Button>
           </div>
         </main>
         <Footer />
