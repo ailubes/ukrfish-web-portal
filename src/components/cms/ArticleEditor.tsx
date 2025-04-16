@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -183,6 +184,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+    // Important - prevent default form submission
     e.preventDefault();
     
     if (!article.title || !article.content || !article.summary) {
@@ -273,7 +275,8 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       }
 
       if (onSave) {
-        onSave({
+        // Create a complete article object to pass to the onSave handler
+        const savedArticle = {
           id: articleId,
           title: article.title || "",
           content: article.content || "",
@@ -283,7 +286,11 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           category: article.category || "Загальні новини",
           author: article.author || "Адміністратор",
           tags: formattedTags,
-        });
+        };
+        
+        // Call the onSave callback with the saved article
+        onSave(savedArticle);
+        return; // Important: stop execution after calling onSave
       }
 
       toast({
@@ -291,6 +298,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         description: "Зміни успішно збережено.",
       });
 
+      // Only reset form if we're not using onSave callback
       if (!onSave) {
         setArticle({
           id: "",
@@ -512,7 +520,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     <div>
       {onCancel && (
         <div className="flex items-center gap-2 mb-6">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+          <Button variant="ghost" size="sm" onClick={onCancel} type="button">
             <ArrowLeft size={16} className="mr-1" />
             Назад
           </Button>
@@ -526,7 +534,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         <div className="text-center py-8">
           <h3 className="text-lg font-medium text-red-600 mb-2">Доступ заборонено</h3>
           <p className="mb-4">Ви повинні бути авторизовані як адміністратор щоб редагувати статті.</p>
-          <Button onClick={() => window.location.href = "/login"}>
+          <Button onClick={() => window.location.href = "/login"} type="button">
             Перейти до входу
           </Button>
         </div>
@@ -815,7 +823,14 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
                 Скасувати
               </Button>
             )}
-            {renderSubmitButton()}
+            <Button type="submit" disabled={isSubmitting || isImageUploading}>
+              <Save className="mr-2 h-4 w-4" />
+              {isSubmitting ? (
+                "Зберігається..."
+              ) : (
+                isEditing ? "Оновити статтю" : "Опублікувати статтю"
+              )}
+            </Button>
           </div>
         </form>
       )}

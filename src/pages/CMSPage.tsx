@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -20,13 +21,7 @@ const CMSPage = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Force refresh on component unmount to ensure user authentication is accurate
-    return () => {
-      checkAdminStatus();
-    }
-  }, [checkAdminStatus]);
-
-  useEffect(() => {
+    // Instead of forcing a refresh, just check admin status once
     const checkAccess = async () => {
       setCheckingAdmin(true);
       
@@ -41,7 +36,6 @@ const CMSPage = () => {
           return;
         }
         
-        // Force a fresh check of admin status
         const isUserAdmin = await checkAdminStatus();
         console.log("Admin check result in CMSPage:", isUserAdmin);
         
@@ -74,6 +68,7 @@ const CMSPage = () => {
   };
 
   const handleArticleSave = () => {
+    // Ensure we're not causing any navigation/reload
     setEditingArticle(null);
     setActiveTab("articles");
     toast({
@@ -178,7 +173,7 @@ const CMSPage = () => {
               />
             </div>
           ) : (
-            <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-4">
                 <TabsTrigger value="articles">Новини</TabsTrigger>
                 <TabsTrigger value="create">Створити новину</TabsTrigger>
@@ -192,7 +187,10 @@ const CMSPage = () => {
               </TabsContent>
               
               <TabsContent value="create">
-                <ArticleEditor onSave={handleArticleSave} onCancel={() => setActiveTab("articles")} />
+                <ArticleEditor 
+                  onSave={handleArticleSave} 
+                  onCancel={() => setActiveTab("articles")} 
+                />
               </TabsContent>
             </Tabs>
           )}
