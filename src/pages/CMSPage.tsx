@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -81,7 +80,6 @@ const CMSPage = () => {
     setActiveTab("edit");
   };
 
-  // Show loading state while checking auth
   if (loading || checkingAdmin) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -97,7 +95,6 @@ const CMSPage = () => {
     );
   }
 
-  // Don't render anything if not admin or not logged in
   if (!user || !isAdmin) {
     return (
       <div className="min-h-screen flex flex-col">
