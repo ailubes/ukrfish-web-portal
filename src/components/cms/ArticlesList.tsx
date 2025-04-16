@@ -75,7 +75,7 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
         const { error } = await supabase
           .from('news_articles')
           .delete()
-          .eq('id', id as any);
+          .eq('id', id);
 
         if (error) {
           throw error;
@@ -118,8 +118,8 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
           category: updatedArticle.category,
           author: updatedArticle.author,
           tags: updatedArticle.tags
-        } as any)
-        .eq('id', updatedArticle.id as any);
+        })
+        .eq('id', updatedArticle.id);
 
       if (error) {
         throw error;

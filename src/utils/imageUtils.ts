@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -73,6 +74,13 @@ export const resizeImage = (file: File, maxSizeKB: number = 100): Promise<Blob> 
 export const uploadImageToSupabase = async (file: File, bucketName: string = 'images'): Promise<string> => {
   try {
     console.log("Starting image upload process...");
+    
+    // Check authentication status first
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error("Authentication required for image upload");
+      throw new Error("You must be logged in to upload images");
+    }
     
     // Generate a unique filename
     const fileExt = file.name.split('.').pop() || 'jpg';

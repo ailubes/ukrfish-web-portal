@@ -10,10 +10,13 @@ import ArticlesList from "../components/cms/ArticlesList";
 import { useToast } from "@/hooks/use-toast";
 import { Users, LayoutDashboard, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { NewsArticle } from "@/types";
 
 const CMSPage = () => {
   const { isAdmin, user, loading, checkAdminStatus } = useAuth();
   const [checkingAdmin, setCheckingAdmin] = useState(false);
+  const [activeTab, setActiveTab] = useState("articles");
+  const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -62,6 +65,20 @@ const CMSPage = () => {
 
   const navigateToDashboard = () => {
     navigate("/admin/dashboard");
+  };
+
+  const handleArticleSave = () => {
+    setEditingArticle(null);
+    setActiveTab("articles");
+    toast({
+      title: "Статтю збережено",
+      description: "Зміни успішно збережено",
+    });
+  };
+
+  const handleEditArticle = (article: NewsArticle) => {
+    setEditingArticle(article);
+    setActiveTab("edit");
   };
 
   // Show loading state while checking auth
@@ -142,20 +159,38 @@ const CMSPage = () => {
             </div>
           </div>
           
-          <Tabs defaultValue="articles">
-            <TabsList className="mb-4">
-              <TabsTrigger value="articles">Новини</TabsTrigger>
-              <TabsTrigger value="create">Створити новину</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="articles">
-              <ArticlesList />
-            </TabsContent>
-            
-            <TabsContent value="create">
-              <ArticleEditor />
-            </TabsContent>
-          </Tabs>
+          {editingArticle ? (
+            <div>
+              <div className="mb-4">
+                <Button variant="outline" onClick={() => setEditingArticle(null)}>
+                  Повернутися до списку
+                </Button>
+              </div>
+              <ArticleEditor 
+                existingArticle={editingArticle} 
+                onSave={handleArticleSave} 
+                onCancel={() => setEditingArticle(null)} 
+              />
+            </div>
+          ) : (
+            <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="articles">Новини</TabsTrigger>
+                <TabsTrigger value="create">Створити новину</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="articles">
+                <ArticlesList 
+                  onEdit={handleEditArticle}
+                  onNew={() => setActiveTab("create")} 
+                />
+              </TabsContent>
+              
+              <TabsContent value="create">
+                <ArticleEditor onSave={handleArticleSave} onCancel={() => setActiveTab("articles")} />
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
       </main>
 
