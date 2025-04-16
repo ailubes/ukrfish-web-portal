@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -121,6 +122,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const coverImageInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (existingArticle) {
@@ -198,6 +200,18 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       };
 
       console.log("Saving article:", articleData);
+      
+      // Check authentication status before saving
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Помилка аутентифікації",
+          description: "Будь ласка, увійдіть в систему перед збереженням статті.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
       
       const { error } = await supabase
         .from('news_articles')
@@ -458,7 +472,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <Label htmlFor="title">Заголовок *</Label>

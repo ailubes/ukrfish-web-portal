@@ -11,8 +11,7 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Edit, Trash2, Plus } from "lucide-react";
-import ArticleEditor from "./ArticleEditor";
+import { Edit, Trash2, Plus, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { uk } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,13 +23,13 @@ type ArticlesListProps = {
 
 const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
-  const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
 
   const fetchArticles = async () => {
-    setIsLoading(true);
     try {
+      setIsRefreshing(true);
       const { data, error } = await supabase
         .from('news_articles')
         .select('*')
@@ -62,6 +61,7 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
       });
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -100,90 +100,46 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
   const handleEditArticle = (article: NewsArticle) => {
     if (onEdit) {
       onEdit(article);
-    } else {
-      setEditingArticle(article);
     }
-  };
-
-  const handleSaveEdit = async (updatedArticle: NewsArticle) => {
-    try {
-      const { error } = await supabase
-        .from('news_articles')
-        .update({
-          title: updatedArticle.title,
-          content: updatedArticle.content,
-          summary: updatedArticle.summary,
-          image_url: updatedArticle.imageUrl,
-          publish_date: new Date(updatedArticle.publishDate).toISOString(),
-          category: updatedArticle.category,
-          author: updatedArticle.author,
-          tags: updatedArticle.tags
-        })
-        .eq('id', updatedArticle.id);
-
-      if (error) {
-        throw error;
-      }
-
-      setArticles(articles.map(article => 
-        article.id === updatedArticle.id ? updatedArticle : article
-      ));
-      setEditingArticle(null);
-      toast({
-        title: "Новину оновлено",
-        description: "Новину успішно оновлено.",
-      });
-      // Refresh articles list
-      fetchArticles();
-    } catch (error) {
-      console.error('Error updating article:', error);
-      toast({
-        title: "Помилка оновлення",
-        description: "Не вдалося оновити новину.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingArticle(null);
   };
 
   const handleAddNew = () => {
     if (onNew) {
       onNew();
-    } else {
-      setEditingArticle({} as NewsArticle);
     }
   };
 
-  if (editingArticle && !onEdit) {
-    return (
-      <div>
-        <div className="mb-4">
-          <Button variant="outline" onClick={handleCancelEdit}>
-            Повернутися до списку
-          </Button>
-        </div>
-        <ArticleEditor existingArticle={editingArticle} onSave={handleSaveEdit} onCancel={handleCancelEdit} />
-      </div>
-    );
-  }
+  const handleRefresh = () => {
+    fetchArticles();
+  };
 
   return (
     <div>
-      {!onEdit && (
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium">Управління новинами</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-medium">Управління новинами</h3>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh} 
+            disabled={isRefreshing}
+            title="Оновити список"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
           <Button onClick={handleAddNew}>
             <Plus className="h-4 w-4 mr-1" /> 
             Створити новину
           </Button>
         </div>
-      )}
+      </div>
       
       {isLoading ? (
-        <p className="text-gray-500">Завантаження новин...</p>
+        <div className="flex justify-center py-10">
+          <div className="flex flex-col items-center">
+            <RefreshCw className="h-8 w-8 animate-spin text-blue-500 mb-2" />
+            <p>Завантаження новин...</p>
+          </div>
+        </div>
       ) : articles.length === 0 ? (
         <div className="text-center py-10">
           <p className="text-gray-500 mb-4">Новин не знайдено. Додайте першу новину.</p>
@@ -217,15 +173,17 @@ const ArticlesList = ({ onEdit, onNew }: ArticlesListProps) => {
                         variant="outline" 
                         size="sm" 
                         onClick={() => handleEditArticle(article)}
+                        title="Редагувати"
                       >
-                        <Edit className="h-4 w-4 mr-1" /> 
+                        <Edit className="h-4 w-4" /> 
                       </Button>
                       <Button 
                         variant="destructive" 
                         size="sm"
                         onClick={() => handleDeleteArticle(article.id)}
+                        title="Видалити"
                       >
-                        <Trash2 className="h-4 w-4 mr-1" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>

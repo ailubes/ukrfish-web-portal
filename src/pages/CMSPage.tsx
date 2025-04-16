@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -80,6 +81,11 @@ const CMSPage = () => {
     setActiveTab("edit");
   };
 
+  const handleCloseEditor = () => {
+    setEditingArticle(null);
+    setActiveTab("articles");
+  };
+
   if (loading || checkingAdmin) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -158,15 +164,10 @@ const CMSPage = () => {
           
           {editingArticle ? (
             <div>
-              <div className="mb-4">
-                <Button variant="outline" onClick={() => setEditingArticle(null)}>
-                  Повернутися до списку
-                </Button>
-              </div>
               <ArticleEditor 
                 existingArticle={editingArticle} 
                 onSave={handleArticleSave} 
-                onCancel={() => setEditingArticle(null)} 
+                onCancel={handleCloseEditor} 
               />
             </div>
           ) : (
