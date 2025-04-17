@@ -110,7 +110,7 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
         
         if (createBucketError) {
           console.error("Error creating bucket:", createBucketError);
-          // Continue anyway, the bucket might have been created by another concurrent request
+          // We'll continue anyway, since the bucket might have been created concurrently
         }
       }
     } catch (bucketError) {

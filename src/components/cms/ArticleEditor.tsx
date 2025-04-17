@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -184,7 +183,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    // Important - prevent default form submission
+    // CRITICAL FIX: Prevent default form submission to avoid page reload
     e.preventDefault();
     
     if (!article.title || !article.content || !article.summary) {

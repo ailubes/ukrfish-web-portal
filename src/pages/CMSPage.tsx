@@ -21,7 +21,7 @@ const CMSPage = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Instead of forcing a refresh, just check admin status once
+    // Check admin status once when the component loads
     const checkAccess = async () => {
       setCheckingAdmin(true);
       
@@ -63,12 +63,13 @@ const CMSPage = () => {
     checkAccess();
   }, [user, navigate, toast, checkAdminStatus]);
 
-  const navigateToDashboard = () => {
+  const navigateToDashboard = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default link behavior
     navigate("/admin/dashboard");
   };
 
   const handleArticleSave = () => {
-    // Ensure we're not causing any navigation/reload
+    // Don't navigate away, just update state
     setEditingArticle(null);
     setActiveTab("articles");
     toast({
@@ -85,6 +86,12 @@ const CMSPage = () => {
   const handleCloseEditor = () => {
     setEditingArticle(null);
     setActiveTab("articles");
+  };
+
+  // Navigate to members page without page reload
+  const handleMembersNavigation = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate("/admin/members");
   };
 
   if (loading || checkingAdmin) {
@@ -135,7 +142,7 @@ const CMSPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div 
               className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-              onClick={() => navigate("/admin/members")}
+              onClick={handleMembersNavigation}
             >
               <div className="flex items-center">
                 <div className="bg-blue-100 p-3 rounded-full mr-4">
