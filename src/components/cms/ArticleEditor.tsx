@@ -41,6 +41,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+// CSS styles for the editor preview
 const editorStyles = `
   .editor-preview h1 {
     font-size: 2em;
@@ -109,6 +110,7 @@ const ArticleEditor = ({
   onCancel, 
   draftStorageKey = 'article-draft-v4' 
 }: ArticleEditorProps) => {
+  // Base article state with default values
   const [article, setArticle] = useState<Partial<NewsArticle>>({
     id: "",
     title: "",
@@ -120,81 +122,92 @@ const ArticleEditor = ({
     author: "Адміністратор",
     tags: [],
   });
+  
   const [tagsInput, setTagsInput] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
-  const [draftRestored, setDraftRestored] = useState(false);
+  const [hasDraftBeenRestored, setHasDraftBeenRestored] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
   const isEditing = !!existingArticle?.id;
+  
+  // Refs for DOM elements
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   
-  // Initialize with existing article data if editing
+  // Only run the initialization effect once to prevent loops
   useEffect(() => {
-    // Only run this effect once to prevent loops
-    if (draftRestored) {
-      return;
-    }
-
-    if (existingArticle) {
-      setArticle(existingArticle);
-      setTagsInput(existingArticle.tags?.join(", ") || "");
-      
-      // When editing, clear any draft
-      localStorage.removeItem(draftStorageKey);
-      setDraftRestored(true);
-    } else {
-      // When creating new, try to load draft
-      try {
-        const savedDraft = localStorage.getItem(draftStorageKey);
-        if (savedDraft) {
-          const parsedDraft = JSON.parse(savedDraft);
-          if (parsedDraft) {
-            setArticle(prev => ({...prev, ...parsedDraft.article}));
-            if (parsedDraft.tagsInput) {
-              setTagsInput(parsedDraft.tagsInput);
+    if (isInitialized) return;
+    
+    const initializeArticle = () => {
+      if (existingArticle) {
+        // When editing, initialize with existing article & clear any drafts
+        console.log("Initializing editor with existing article:", existingArticle.id);
+        setArticle(existingArticle);
+        setTagsInput(existingArticle.tags?.join(", ") || "");
+        localStorage.removeItem(draftStorageKey);
+      } else {
+        // When creating new, try to load draft
+        try {
+          const savedDraft = localStorage.getItem(draftStorageKey);
+          if (savedDraft) {
+            const parsedDraft = JSON.parse(savedDraft);
+            if (parsedDraft && parsedDraft.article) {
+              console.log("Restoring draft:", parsedDraft.lastSaved);
+              setArticle(prev => ({...prev, ...parsedDraft.article}));
+              if (parsedDraft.tagsInput) {
+                setTagsInput(parsedDraft.tagsInput);
+              }
+              
+              if (!hasDraftBeenRestored) {
+                toast({
+                  title: "Чернетку відновлено",
+                  description: "Відновлено незбережену статтю з попереднього сеансу",
+                });
+                setHasDraftBeenRestored(true);
+              }
             }
-            
-            toast({
-              title: "Чернетку відновлено",
-              description: "Відновлено незбережену статтю з попереднього сеансу",
-            });
           }
+        } catch (error) {
+          console.error("Error restoring draft:", error);
+          // If draft restoration fails, clear it to avoid future errors
+          localStorage.removeItem(draftStorageKey);
         }
-        setDraftRestored(true);
-      } catch (error) {
-        console.error("Error restoring draft:", error);
-        setDraftRestored(true);
       }
-    }
-  }, [existingArticle, toast, draftStorageKey, draftRestored]);
+    };
+    
+    initializeArticle();
+    setIsInitialized(true);
+  }, [existingArticle, toast, draftStorageKey, hasDraftBeenRestored, isInitialized]);
 
-  // Autosave draft if not editing and not submitted
+  // Setup autosave with debounce
   useEffect(() => {
-    if (isEditing || !draftRestored) {
-      return; // Don't save drafts when editing existing articles or before initial load
-    }
+    if (!isInitialized || isEditing) return;
     
     const autosaveTimer = setTimeout(() => {
       try {
-        localStorage.setItem(draftStorageKey, JSON.stringify({
-          article: article,
-          tagsInput: tagsInput,
-          lastSaved: new Date().toISOString()
-        }));
-        console.log("Draft autosaved:", new Date().toISOString());
+        // Only save draft if we have content
+        if (article.title || article.content || article.summary || tagsInput) {
+          localStorage.setItem(draftStorageKey, JSON.stringify({
+            article: article,
+            tagsInput: tagsInput,
+            lastSaved: new Date().toISOString()
+          }));
+          console.log("Draft autosaved:", new Date().toISOString());
+        }
       } catch (error) {
         console.error("Error saving draft:", error);
       }
-    }, 5000);
+    }, 3000); // Debounce to prevent excessive saves
     
     return () => clearTimeout(autosaveTimer);
-  }, [article, tagsInput, isEditing, draftStorageKey, draftRestored]);
+  }, [article, tagsInput, isEditing, draftStorageKey, isInitialized]);
 
+  // Handle form field changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setArticle((prev) => ({ ...prev, [name]: value }));
@@ -209,40 +222,6 @@ const ArticleEditor = ({
       .split(",")
       .map((tag) => tag.trim())
       .filter((tag) => tag.length > 0);
-  };
-
-  // Ensure storage bucket exists before uploading
-  const ensureStorageBucketExists = async (bucketName: string): Promise<void> => {
-    try {
-      // First check if the bucket exists
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-      
-      if (listError) {
-        console.error("Error listing buckets:", listError);
-        throw listError;
-      }
-      
-      const bucketExists = buckets?.some(b => b.name === bucketName);
-      
-      if (!bucketExists) {
-        console.log(`Bucket ${bucketName} does not exist, creating it...`);
-        const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
-          public: true
-        });
-        
-        if (createBucketError) {
-          console.error("Error creating bucket:", createBucketError);
-          throw createBucketError;
-        }
-        
-        console.log(`Bucket ${bucketName} created successfully.`);
-      } else {
-        console.log(`Bucket ${bucketName} already exists.`);
-      }
-    } catch (error) {
-      console.error("Error ensuring bucket exists:", error);
-      throw error;
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -271,6 +250,7 @@ const ArticleEditor = ({
     try {
       const formattedTags = formatTags(tagsInput);
 
+      // Make sure we have the latest editor content
       if (editorRef.current) {
         setArticle(prev => ({
           ...prev,
@@ -280,6 +260,7 @@ const ArticleEditor = ({
 
       const articleId = article.id || uuidv4();
       
+      // Normalize publish date
       let publishDate: string;
       try {
         if (typeof article.publishDate === 'string') {
@@ -294,6 +275,7 @@ const ArticleEditor = ({
         publishDate = new Date().toISOString();
       }
       
+      // Prepare data for Supabase
       const articleData = {
         id: articleId,
         title: article.title,
@@ -308,6 +290,7 @@ const ArticleEditor = ({
 
       console.log("Saving article:", articleData);
       
+      // Verify session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast({
@@ -319,6 +302,7 @@ const ArticleEditor = ({
         return;
       }
       
+      // Save to Supabase
       const { error } = await supabase
         .from('news_articles')
         .upsert(articleData as any);
@@ -328,9 +312,10 @@ const ArticleEditor = ({
         throw error;
       }
 
-      // Clear the draft after successful save
+      // Clear draft immediately after successful save
       localStorage.removeItem(draftStorageKey);
 
+      // If parent component provided onSave callback, use it
       if (onSave) {
         const savedArticle = {
           id: articleId,
@@ -344,16 +329,20 @@ const ArticleEditor = ({
           tags: formattedTags,
         };
         
-        onSave(savedArticle);
+        // Ensure clean completion before triggering parent callback
+        setTimeout(() => {
+          onSave(savedArticle);
+        }, 100);
         return;
       }
 
+      // Show success message
       toast({
         title: isEditing ? "Новину оновлено" : "Новину створено",
         description: "Зміни успішно збережено.",
       });
 
-      // Reset form after successful save
+      // Reset form if no parent callback
       setArticle({
         id: "",
         title: "",
@@ -384,68 +373,75 @@ const ArticleEditor = ({
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        setIsImageUploading(true);
-        toast({
-          title: "Завантаження...",
-          description: "Зображення завантажується, зачекайте, будь ласка.",
-        });
-        
-        // Ensure the images bucket exists before upload
-        await ensureStorageBucketExists('images');
-        
-        const uploadedImageUrl = await uploadImageToSupabase(file);
-        
-        if (editorRef.current) {
-          const selection = window.getSelection();
-          if (selection && selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            const imgElement = document.createElement('img');
-            imgElement.src = uploadedImageUrl;
-            imgElement.alt = file.name;
-            imgElement.style.maxWidth = '100%';
-            imgElement.className = 'my-2';
-            
-            range.insertNode(imgElement);
-            range.setStartAfter(imgElement);
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
-            
-            setArticle(prev => ({ 
-              ...prev, 
-              content: editorRef.current?.innerHTML || prev.content || "" 
-            }));
-          } else {
-            const imgHtml = `<img src="${uploadedImageUrl}" alt="${file.name}" style="max-width: 100%;" class="my-2" />`;
-            editorRef.current.innerHTML += imgHtml;
-            setArticle(prev => ({ 
-              ...prev, 
-              content: editorRef.current?.innerHTML || prev.content || "" 
-            }));
-          }
+    if (!file) return;
+    
+    try {
+      setIsImageUploading(true);
+      toast({
+        title: "Завантаження...",
+        description: "Зображення завантажується, зачекайте, будь ласка.",
+      });
+      
+      // Upload to Supabase
+      const uploadedImageUrl = await uploadImageToSupabase(file);
+      
+      // Insert image at cursor position or at the end
+      if (editorRef.current) {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          const imgElement = document.createElement('img');
+          imgElement.src = uploadedImageUrl;
+          imgElement.alt = file.name;
+          imgElement.style.maxWidth = '100%';
+          imgElement.className = 'my-2';
+          
+          range.insertNode(imgElement);
+          range.setStartAfter(imgElement);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          
+          // Update content state
+          setArticle(prev => ({ 
+            ...prev, 
+            content: editorRef.current?.innerHTML || prev.content || "" 
+          }));
+        } else {
+          // If no selection, add at the end
+          const imgHtml = `<img src="${uploadedImageUrl}" alt="${file.name}" style="max-width: 100%;" class="my-2" />`;
+          editorRef.current.innerHTML += imgHtml;
+          
+          // Update content state
+          setArticle(prev => ({ 
+            ...prev, 
+            content: editorRef.current?.innerHTML || prev.content || "" 
+          }));
         }
-        
-        setImageFile(file);
-        toast({
-          title: "Зображення завантажено",
-          description: "Зображення успішно додано до статті.",
-        });
-      } catch (error) {
-        console.error("Image upload error:", error);
-        toast({
-          title: "Помилка завантаження",
-          description: "Не вдалося завантажити зображення. Перевірте підключення або розмір файлу.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsImageUploading(false);
+      }
+      
+      setImageFile(file);
+      toast({
+        title: "Зображення завантажено",
+        description: "Зображення успішно додано до статті.",
+      });
+    } catch (error) {
+      console.error("Image upload error:", error);
+      toast({
+        title: "Помилка завантаження",
+        description: error instanceof Error ? error.message : "Не вдалося завантажити зображення.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImageUploading(false);
+      // Reset file input
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
       }
     }
   };
   
-  const handleCoverImageUpload = async () => {
+  const handleCoverImageUpload = () => {
     if (coverImageInputRef.current) {
       coverImageInputRef.current.click();
     }
@@ -453,33 +449,38 @@ const ArticleEditor = ({
   
   const insertCoverImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        setIsImageUploading(true);
-        toast({
-          title: "Завантаження...",
-          description: "Зображення завантажується, зачекайте, будь ласка.",
-        });
-        
-        // Ensure the images bucket exists before upload
-        await ensureStorageBucketExists('images');
-        
-        const uploadedImageUrl = await uploadImageToSupabase(file);
-        setArticle(prev => ({ ...prev, imageUrl: uploadedImageUrl }));
-        setImageFile(file);
-        toast({
-          title: "Зображення завантажено",
-          description: "Зображення успішно додано як обкладинку статті.",
-        });
-      } catch (error) {
-        console.error("Cover image upload error:", error);
-        toast({
-          title: "Помилка завантаження",
-          description: "Не вдалося завантажити зображення.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsImageUploading(false);
+    if (!file) return;
+    
+    try {
+      setIsImageUploading(true);
+      toast({
+        title: "Завантаження...",
+        description: "Зображення завантажується, зачекайте, будь ласка.",
+      });
+      
+      // Upload to Supabase
+      const uploadedImageUrl = await uploadImageToSupabase(file);
+      
+      // Update article state with cover image URL
+      setArticle(prev => ({ ...prev, imageUrl: uploadedImageUrl }));
+      setImageFile(file);
+      
+      toast({
+        title: "Зображення завантажено",
+        description: "Зображення успішно додано як обкладинку статті.",
+      });
+    } catch (error) {
+      console.error("Cover image upload error:", error);
+      toast({
+        title: "Помилка завантаження",
+        description: error instanceof Error ? error.message : "Не вдалося завантажити зображення.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImageUploading(false);
+      // Reset file input
+      if (coverImageInputRef.current) {
+        coverImageInputRef.current.value = '';
       }
     }
   };
@@ -490,6 +491,7 @@ const ArticleEditor = ({
     }
   };
 
+  // Editor commands
   const executeCommand = (command: string, value: string = '') => {
     if (editorRef.current && document.activeElement !== editorRef.current) {
       editorRef.current.focus();
@@ -497,6 +499,7 @@ const ArticleEditor = ({
     
     document.execCommand(command, false, value);
     
+    // Update content state after command execution
     if (editorRef.current) {
       setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
     }
@@ -536,6 +539,7 @@ const ArticleEditor = ({
     }
   };
   
+  // Set up editor when component mounts
   useEffect(() => {
     if (editorRef.current) {
       editorRef.current.contentEditable = 'true';
@@ -554,6 +558,7 @@ const ArticleEditor = ({
     }
   }, []);
 
+  // Add editor styles to document
   useEffect(() => {
     const styleElement = document.createElement('style');
     styleElement.innerHTML = editorStyles;
@@ -563,23 +568,6 @@ const ArticleEditor = ({
       document.head.removeChild(styleElement);
     };
   }, []);
-
-  // Update imageUtils.ts to ensure bucket exists
-  const fixImageUploadToSupabase = async () => {
-    try {
-      await ensureStorageBucketExists('images');
-    } catch (error) {
-      console.error("Could not ensure images bucket exists:", error);
-    }
-  };
-
-  // Run this once to make sure the bucket exists
-  useEffect(() => {
-    if (user && isAdmin) {
-      fixImageUploadToSupabase();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isAdmin]);
 
   return (
     <div>
@@ -874,7 +862,7 @@ const ArticleEditor = ({
                 type="date"
                 value={
                   article.publishDate
-                    ? new Date(article.publishDate).toISOString().split("T")[0]
+                    ? new Date(article.publishDate instanceof Date ? article.publishDate : new Date(article.publishDate)).toISOString().split("T")[0]
                     : new Date().toISOString().split("T")[0]
                 }
                 onChange={handleChange}

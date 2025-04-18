@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -11,9 +11,6 @@ import { Users, LayoutDashboard, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { NewsArticle } from "@/types";
 
-// Storage key for drafts
-const DRAFT_STORAGE_KEY = 'article-draft-v4';
-
 const CMSPage = () => {
   const { isAdmin, user, loading, checkAdminStatus } = useAuth();
   const [checkingAdmin, setCheckingAdmin] = useState(false);
@@ -22,97 +19,95 @@ const CMSPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Clear any lingering draft on first page load if we're in articles view
-  useEffect(() => {
-    if (currentView === "articles") {
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Check admin status once when the component loads
-    const checkAccess = async () => {
-      setCheckingAdmin(true);
-      
-      try {
-        if (!user) {
-          toast({
-            title: "Доступ заборонено",
-            description: "Будь ласка, увійдіть в систему",
-            variant: "destructive",
-          });
-          navigate("/login");
-          return;
-        }
-        
-        const isUserAdmin = await checkAdminStatus();
-        console.log("Admin check result in CMSPage:", isUserAdmin);
-        
-        if (!isUserAdmin) {
-          toast({
-            title: "Доступ заборонено",
-            description: "У вас немає прав адміністратора",
-            variant: "destructive",
-          });
-          navigate("/");
-        }
-      } catch (error) {
-        console.error("Error in access check:", error);
+  // Use useCallback to prevent infinite loops
+  const checkAccess = useCallback(async () => {
+    if (checkingAdmin) return; // Prevent concurrent checks
+    
+    setCheckingAdmin(true);
+    
+    try {
+      if (!user) {
         toast({
-          title: "Помилка",
-          description: "Виникла помилка при перевірці доступу",
+          title: "Доступ заборонено",
+          description: "Будь ласка, увійдіть в систему",
+          variant: "destructive",
+        });
+        navigate("/login");
+        return;
+      }
+      
+      const isUserAdmin = await checkAdminStatus();
+      console.log("Admin check result in CMSPage:", isUserAdmin);
+      
+      if (!isUserAdmin) {
+        toast({
+          title: "Доступ заборонено",
+          description: "У вас немає прав адміністратора",
           variant: "destructive",
         });
         navigate("/");
-      } finally {
-        setCheckingAdmin(false);
       }
-    };
-    
+    } catch (error) {
+      console.error("Error in access check:", error);
+      toast({
+        title: "Помилка",
+        description: "Виникла помилка при перевірці доступу",
+        variant: "destructive",
+      });
+      navigate("/");
+    } finally {
+      setCheckingAdmin(false);
+    }
+  }, [user, navigate, toast, checkAdminStatus, checkingAdmin]);
+
+  // Run admin check only once when component mounts or user changes
+  useEffect(() => {
     checkAccess();
-  }, [user, navigate, toast, checkAdminStatus]);
+  }, [checkAccess]);
 
-  const navigateToDashboard = () => {
-    navigate("/admin/dashboard");
-  };
-
-  const handleArticleSave = () => {
+  const handleArticleSave = useCallback(() => {
     setEditingArticle(null);
     setCurrentView("articles");
-    // Clear any draft after successful save
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    
+    // Clear draft on successful save - using a direct call instead of depending on effect
+    localStorage.removeItem('article-draft-v4');
+    
     toast({
       title: "Статтю збережено",
       description: "Зміни успішно збережено",
     });
-  };
+  }, [toast]);
 
-  const handleEditArticle = (article: NewsArticle) => {
+  const handleEditArticle = useCallback((article: NewsArticle) => {
     // Clear any drafts before editing an existing article
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    localStorage.removeItem('article-draft-v4');
     setEditingArticle(article);
     setCurrentView("edit");
-  };
+  }, []);
 
-  const handleCloseEditor = () => {
+  const handleCloseEditor = useCallback(() => {
     if (window.confirm("Ви впевнені? Незбережені зміни будуть втрачені.")) {
       setEditingArticle(null);
       setCurrentView("articles");
       // Clear any draft when cancelling
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem('article-draft-v4');
     }
-  };
+  }, []);
 
-  const handleCreateNewArticle = () => {
+  const handleCreateNewArticle = useCallback(() => {
     // Clear any existing draft when explicitly creating a new article
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    localStorage.removeItem('article-draft-v4');
     setEditingArticle(null);
     setCurrentView("create");
-  };
+  }, []);
 
-  const handleMembersNavigation = () => {
+  const handleMembersNavigation = useCallback(() => {
     navigate("/admin/members");
-  };
+  }, [navigate]);
+
+  const navigateToDashboard = useCallback(() => {
+    navigate("/admin/dashboard");
+  }, [navigate]);
 
   if (loading || checkingAdmin) {
     return (
@@ -137,7 +132,7 @@ const CMSPage = () => {
           <div className="text-center">
             <h2 className="text-xl font-semibold mb-2">Доступ заборонено</h2>
             <p className="mb-4">У вас немає прав адміністратора для доступу до цієї сторінки.</p>
-            <Button onClick={() => navigate("/login")}>Увійти в систему</Button>
+            <Button onClick={() => navigate("/login")} type="button">Увійти в систему</Button>
             <Button onClick={() => navigate("/")} variant="outline" className="ml-2">Повернутися на головну</Button>
           </div>
         </main>
@@ -196,13 +191,13 @@ const CMSPage = () => {
               existingArticle={editingArticle} 
               onSave={handleArticleSave} 
               onCancel={handleCloseEditor} 
-              draftStorageKey={DRAFT_STORAGE_KEY}
+              draftStorageKey="article-draft-v4"
             />
           ) : currentView === "create" ? (
             <ArticleEditor 
               onSave={handleArticleSave} 
               onCancel={handleCloseEditor} 
-              draftStorageKey={DRAFT_STORAGE_KEY}
+              draftStorageKey="article-draft-v4"
             />
           ) : (
             <ArticlesList 
