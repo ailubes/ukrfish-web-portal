@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ArticleEditor from "../components/cms/ArticleEditor";
 import ArticlesList from "../components/cms/ArticlesList";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +14,7 @@ import { NewsArticle } from "@/types";
 const CMSPage = () => {
   const { isAdmin, user, loading, checkAdminStatus } = useAuth();
   const [checkingAdmin, setCheckingAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState<"articles" | "create" | "edit">("articles");
+  const [currentView, setCurrentView] = useState<"articles" | "create" | "edit">("articles");
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -63,15 +62,13 @@ const CMSPage = () => {
     checkAccess();
   }, [user, navigate, toast, checkAdminStatus]);
 
-  const navigateToDashboard = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent default link behavior
+  const navigateToDashboard = () => {
     navigate("/admin/dashboard");
   };
 
   const handleArticleSave = () => {
-    // Don't navigate away, just update state
     setEditingArticle(null);
-    setActiveTab("articles");
+    setCurrentView("articles");
     toast({
       title: "Статтю збережено",
       description: "Зміни успішно збережено",
@@ -80,22 +77,20 @@ const CMSPage = () => {
 
   const handleEditArticle = (article: NewsArticle) => {
     setEditingArticle(article);
-    setActiveTab("edit");
+    setCurrentView("edit");
   };
 
   const handleCloseEditor = () => {
     setEditingArticle(null);
-    setActiveTab("articles");
+    setCurrentView("articles");
   };
 
   const handleCreateNewArticle = () => {
     setEditingArticle(null);
-    setActiveTab("create");
+    setCurrentView("create");
   };
 
-  // Navigate to members page without page reload
-  const handleMembersNavigation = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleMembersNavigation = () => {
     navigate("/admin/members");
   };
 
@@ -176,21 +171,17 @@ const CMSPage = () => {
             </div>
           </div>
           
-          {activeTab === "edit" && editingArticle ? (
-            <div>
-              <ArticleEditor 
-                existingArticle={editingArticle} 
-                onSave={handleArticleSave} 
-                onCancel={handleCloseEditor} 
-              />
-            </div>
-          ) : activeTab === "create" ? (
-            <div>
-              <ArticleEditor 
-                onSave={handleArticleSave} 
-                onCancel={handleCloseEditor} 
-              />
-            </div>
+          {currentView === "edit" && editingArticle ? (
+            <ArticleEditor 
+              existingArticle={editingArticle} 
+              onSave={handleArticleSave} 
+              onCancel={handleCloseEditor} 
+            />
+          ) : currentView === "create" ? (
+            <ArticleEditor 
+              onSave={handleArticleSave} 
+              onCancel={handleCloseEditor} 
+            />
           ) : (
             <ArticlesList 
               onEdit={handleEditArticle}

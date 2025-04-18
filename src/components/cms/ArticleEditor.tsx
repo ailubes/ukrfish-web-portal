@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -101,7 +102,7 @@ interface ArticleEditorProps {
   onCancel?: () => void;
 }
 
-const DRAFT_STORAGE_KEY = 'article-draft-v2';
+const DRAFT_STORAGE_KEY = 'article-draft-v3';
 
 const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps) => {
   const [article, setArticle] = useState<Partial<NewsArticle>>({
@@ -126,72 +127,55 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   const imageInputRef = useRef<HTMLInputElement>(null);
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  const [saveAttempted, setSaveAttempted] = useState(false);
-  const [draftRestored, setDraftRestored] = useState(false);
-  const [initializationComplete, setInitializationComplete] = useState(false);
 
+  // Initialize with existing article data if editing
   useEffect(() => {
     if (existingArticle) {
       setArticle(existingArticle);
       setTagsInput(existingArticle.tags?.join(", ") || "");
-    }
-    
-    setInitializationComplete(true);
-  }, [existingArticle]);
-
-  useEffect(() => {
-    if (!initializationComplete || isEditing || draftRestored || saveAttempted) {
-      return;
-    }
-
-    try {
-      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-      if (savedDraft) {
-        const parsedDraft = JSON.parse(savedDraft);
-        if (parsedDraft) {
-          setArticle(prev => ({...prev, ...parsedDraft.article}));
-          if (parsedDraft.tagsInput) {
-            setTagsInput(parsedDraft.tagsInput);
+      
+      // When editing, clear any draft
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } else {
+      // When creating new, try to load draft
+      try {
+        const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (savedDraft) {
+          const parsedDraft = JSON.parse(savedDraft);
+          if (parsedDraft) {
+            setArticle(prev => ({...prev, ...parsedDraft.article}));
+            if (parsedDraft.tagsInput) {
+              setTagsInput(parsedDraft.tagsInput);
+            }
+            
+            toast({
+              title: "Чернетку відновлено",
+              description: "Відновлено незбережену статтю з попереднього сеансу",
+            });
           }
-          
-          toast({
-            title: "Чернетку відновлено",
-            description: "Відновлено незбережену статтю з попереднього сеансу",
-          });
-          
-          setDraftRestored(true);
         }
+      } catch (error) {
+        console.error("Error restoring draft:", error);
       }
-    } catch (error) {
-      console.error("Error restoring draft:", error);
     }
-  }, [initializationComplete, isEditing, draftRestored, saveAttempted, toast]);
+  }, [existingArticle, toast]);
 
+  // Autosave draft if not editing and not submitted
   useEffect(() => {
-    if (!initializationComplete || isEditing || saveAttempted) {
-      return;
+    if (isEditing) {
+      return; // Don't save drafts when editing existing articles
     }
     
     const autosaveTimer = setTimeout(() => {
-      if (!isEditing) {
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
-          article: article,
-          tagsInput: tagsInput,
-          lastSaved: new Date().toISOString()
-        }));
-      }
-    }, 2000);
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
+        article: article,
+        tagsInput: tagsInput,
+        lastSaved: new Date().toISOString()
+      }));
+    }, 5000);
     
     return () => clearTimeout(autosaveTimer);
-  }, [article, tagsInput, initializationComplete, isEditing, saveAttempted]);
-
-  useEffect(() => {
-    return () => {
-      if (saveAttempted) {
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
-      }
-    };
-  }, [saveAttempted]);
+  }, [article, tagsInput, isEditing]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -230,7 +214,6 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       return;
     }
 
-    setSaveAttempted(true);
     setIsSubmitting(true);
 
     try {
@@ -293,6 +276,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         throw error;
       }
 
+      // Clear the draft after successful save
       localStorage.removeItem(DRAFT_STORAGE_KEY);
 
       if (onSave) {
@@ -317,6 +301,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         description: "Зміни успішно збережено.",
       });
 
+      // Reset form after successful save
       setArticle({
         id: "",
         title: "",
@@ -492,17 +477,6 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       executeCommand('createLink', url);
     }
   };
-
-  const renderSubmitButton = () => (
-    <Button type="submit" disabled={isSubmitting || isImageUploading}>
-      <Save className="mr-2 h-4 w-4" />
-      {isSubmitting ? (
-        "Зберігається..."
-      ) : (
-        isEditing ? "Оновити статтю" : "Опублікувати статтю"
-      )}
-    </Button>
-  );
   
   useEffect(() => {
     if (editorRef.current) {
@@ -529,6 +503,15 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
 
     return () => {
       document.head.removeChild(styleElement);
+    };
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // When unmounting due to a successful submission (e.g. redirect or completion),
+      // the draft should already be cleared. We don't want to clear here to prevent
+      // losing drafts when users accidentally navigate away.
     };
   }, []);
 
