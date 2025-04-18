@@ -100,11 +100,15 @@ interface ArticleEditorProps {
   existingArticle?: NewsArticle;
   onSave?: (article: NewsArticle) => void;
   onCancel?: () => void;
+  draftStorageKey?: string;
 }
 
-const DRAFT_STORAGE_KEY = 'article-draft-v3';
-
-const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps) => {
+const ArticleEditor = ({ 
+  existingArticle, 
+  onSave, 
+  onCancel, 
+  draftStorageKey = 'article-draft-v4' 
+}: ArticleEditorProps) => {
   const [article, setArticle] = useState<Partial<NewsArticle>>({
     id: "",
     title: "",
@@ -120,6 +124,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
   const isEditing = !!existingArticle?.id;
@@ -127,19 +132,25 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   const imageInputRef = useRef<HTMLInputElement>(null);
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-
+  
   // Initialize with existing article data if editing
   useEffect(() => {
+    // Only run this effect once to prevent loops
+    if (draftRestored) {
+      return;
+    }
+
     if (existingArticle) {
       setArticle(existingArticle);
       setTagsInput(existingArticle.tags?.join(", ") || "");
       
       // When editing, clear any draft
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem(draftStorageKey);
+      setDraftRestored(true);
     } else {
       // When creating new, try to load draft
       try {
-        const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        const savedDraft = localStorage.getItem(draftStorageKey);
         if (savedDraft) {
           const parsedDraft = JSON.parse(savedDraft);
           if (parsedDraft) {
@@ -154,28 +165,35 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
             });
           }
         }
+        setDraftRestored(true);
       } catch (error) {
         console.error("Error restoring draft:", error);
+        setDraftRestored(true);
       }
     }
-  }, [existingArticle, toast]);
+  }, [existingArticle, toast, draftStorageKey, draftRestored]);
 
   // Autosave draft if not editing and not submitted
   useEffect(() => {
-    if (isEditing) {
-      return; // Don't save drafts when editing existing articles
+    if (isEditing || !draftRestored) {
+      return; // Don't save drafts when editing existing articles or before initial load
     }
     
     const autosaveTimer = setTimeout(() => {
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
-        article: article,
-        tagsInput: tagsInput,
-        lastSaved: new Date().toISOString()
-      }));
+      try {
+        localStorage.setItem(draftStorageKey, JSON.stringify({
+          article: article,
+          tagsInput: tagsInput,
+          lastSaved: new Date().toISOString()
+        }));
+        console.log("Draft autosaved:", new Date().toISOString());
+      } catch (error) {
+        console.error("Error saving draft:", error);
+      }
     }, 5000);
     
     return () => clearTimeout(autosaveTimer);
-  }, [article, tagsInput, isEditing]);
+  }, [article, tagsInput, isEditing, draftStorageKey, draftRestored]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -191,6 +209,40 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       .split(",")
       .map((tag) => tag.trim())
       .filter((tag) => tag.length > 0);
+  };
+
+  // Ensure storage bucket exists before uploading
+  const ensureStorageBucketExists = async (bucketName: string): Promise<void> => {
+    try {
+      // First check if the bucket exists
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      
+      if (listError) {
+        console.error("Error listing buckets:", listError);
+        throw listError;
+      }
+      
+      const bucketExists = buckets?.some(b => b.name === bucketName);
+      
+      if (!bucketExists) {
+        console.log(`Bucket ${bucketName} does not exist, creating it...`);
+        const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
+          public: true
+        });
+        
+        if (createBucketError) {
+          console.error("Error creating bucket:", createBucketError);
+          throw createBucketError;
+        }
+        
+        console.log(`Bucket ${bucketName} created successfully.`);
+      } else {
+        console.log(`Bucket ${bucketName} already exists.`);
+      }
+    } catch (error) {
+      console.error("Error ensuring bucket exists:", error);
+      throw error;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -277,7 +329,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       }
 
       // Clear the draft after successful save
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem(draftStorageKey);
 
       if (onSave) {
         const savedArticle = {
@@ -339,6 +391,9 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           title: "Завантаження...",
           description: "Зображення завантажується, зачекайте, будь ласка.",
         });
+        
+        // Ensure the images bucket exists before upload
+        await ensureStorageBucketExists('images');
         
         const uploadedImageUrl = await uploadImageToSupabase(file);
         
@@ -405,6 +460,9 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           title: "Завантаження...",
           description: "Зображення завантажується, зачекайте, будь ласка.",
         });
+        
+        // Ensure the images bucket exists before upload
+        await ensureStorageBucketExists('images');
         
         const uploadedImageUrl = await uploadImageToSupabase(file);
         setArticle(prev => ({ ...prev, imageUrl: uploadedImageUrl }));
@@ -506,14 +564,22 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
     };
   }, []);
 
-  // Cleanup on unmount
+  // Update imageUtils.ts to ensure bucket exists
+  const fixImageUploadToSupabase = async () => {
+    try {
+      await ensureStorageBucketExists('images');
+    } catch (error) {
+      console.error("Could not ensure images bucket exists:", error);
+    }
+  };
+
+  // Run this once to make sure the bucket exists
   useEffect(() => {
-    return () => {
-      // When unmounting due to a successful submission (e.g. redirect or completion),
-      // the draft should already be cleared. We don't want to clear here to prevent
-      // losing drafts when users accidentally navigate away.
-    };
-  }, []);
+    if (user && isAdmin) {
+      fixImageUploadToSupabase();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isAdmin]);
 
   return (
     <div>

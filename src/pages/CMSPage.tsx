@@ -11,6 +11,9 @@ import { Users, LayoutDashboard, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { NewsArticle } from "@/types";
 
+// Storage key for drafts
+const DRAFT_STORAGE_KEY = 'article-draft-v4';
+
 const CMSPage = () => {
   const { isAdmin, user, loading, checkAdminStatus } = useAuth();
   const [checkingAdmin, setCheckingAdmin] = useState(false);
@@ -18,6 +21,13 @@ const CMSPage = () => {
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Clear any lingering draft on first page load if we're in articles view
+  useEffect(() => {
+    if (currentView === "articles") {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
+  }, []);
 
   useEffect(() => {
     // Check admin status once when the component loads
@@ -69,6 +79,8 @@ const CMSPage = () => {
   const handleArticleSave = () => {
     setEditingArticle(null);
     setCurrentView("articles");
+    // Clear any draft after successful save
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
     toast({
       title: "Статтю збережено",
       description: "Зміни успішно збережено",
@@ -76,16 +88,24 @@ const CMSPage = () => {
   };
 
   const handleEditArticle = (article: NewsArticle) => {
+    // Clear any drafts before editing an existing article
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
     setEditingArticle(article);
     setCurrentView("edit");
   };
 
   const handleCloseEditor = () => {
-    setEditingArticle(null);
-    setCurrentView("articles");
+    if (window.confirm("Ви впевнені? Незбережені зміни будуть втрачені.")) {
+      setEditingArticle(null);
+      setCurrentView("articles");
+      // Clear any draft when cancelling
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
   };
 
   const handleCreateNewArticle = () => {
+    // Clear any existing draft when explicitly creating a new article
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
     setEditingArticle(null);
     setCurrentView("create");
   };
@@ -176,11 +196,13 @@ const CMSPage = () => {
               existingArticle={editingArticle} 
               onSave={handleArticleSave} 
               onCancel={handleCloseEditor} 
+              draftStorageKey={DRAFT_STORAGE_KEY}
             />
           ) : currentView === "create" ? (
             <ArticleEditor 
               onSave={handleArticleSave} 
               onCancel={handleCloseEditor} 
+              draftStorageKey={DRAFT_STORAGE_KEY}
             />
           ) : (
             <ArticlesList 
