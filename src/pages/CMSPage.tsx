@@ -180,7 +180,7 @@ const CMSPage = () => {
               />
             </div>
           ) : (
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="articles">
               <TabsList className="mb-4">
                 <TabsTrigger value="articles">Новини</TabsTrigger>
                 <TabsTrigger value="create">Створити новину</TabsTrigger>

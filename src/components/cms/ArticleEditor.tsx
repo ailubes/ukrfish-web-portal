@@ -125,19 +125,28 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [saveAttempted, setSaveAttempted] = useState(false);
+  // Add flag to prevent restoring from local storage on initial load
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   useEffect(() => {
     if (existingArticle) {
       setArticle(existingArticle);
       setTagsInput(existingArticle.tags?.join(", ") || "");
     }
+    
+    // Mark that initial load is complete after setting state from existingArticle
+    setInitialLoadComplete(true);
   }, [existingArticle]);
 
   useEffect(() => {
-    if (saveAttempted) return; // Don't overwrite with local storage after save attempt
+    // Skip draft restoration on initial render or if saving has been attempted
+    if (!initialLoadComplete || saveAttempted) return;
+    
+    // Skip draft restoration if editing an existing article
+    if (isEditing) return;
     
     const savedContent = localStorage.getItem('article-draft');
-    if (savedContent && !existingArticle?.id) {
+    if (savedContent) {
       try {
         const parsedContent = JSON.parse(savedContent);
         if (parsedContent) {
@@ -145,6 +154,8 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           if (parsedContent.tagsInput) {
             setTagsInput(parsedContent.tagsInput);
           }
+          
+          // Only show toast once per session, not on every render
           toast({
             title: "Чернетку відновлено",
             description: "Відновлено незбережену статтю з попереднього сеансу",
@@ -154,17 +165,23 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         console.error("Error parsing saved content:", e);
       }
     }
+  }, [initialLoadComplete, saveAttempted, isEditing, toast]);
+  
+  // Separate effect for saving to localStorage to prevent it from running on every render
+  useEffect(() => {
+    // Only save to localStorage after initial load and if not editing
+    if (!initialLoadComplete || isEditing) return;
     
+    // Save when unmounting if we haven't attempted to save yet
     return () => {
-      if (!saveAttempted && !existingArticle?.id) {
-        // Only save if not editing an existing article and not after save attempt
+      if (!saveAttempted && !isEditing) {
         localStorage.setItem('article-draft', JSON.stringify({
           ...article,
           tagsInput,
         }));
       }
     };
-  }, [article, tagsInput, existingArticle, saveAttempted]);
+  }, [article, tagsInput, initialLoadComplete, saveAttempted, isEditing]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -269,9 +286,7 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       }
 
       // Clear draft from localStorage on successful save
-      if (!isEditing) {
-        localStorage.removeItem('article-draft');
-      }
+      localStorage.removeItem('article-draft');
 
       if (onSave) {
         // Create a complete article object to pass to the onSave handler
