@@ -101,6 +101,8 @@ interface ArticleEditorProps {
   onCancel?: () => void;
 }
 
+const DRAFT_STORAGE_KEY = 'article-draft-v2';
+
 const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps) => {
   const [article, setArticle] = useState<Partial<NewsArticle>>({
     id: "",
@@ -125,8 +127,8 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [saveAttempted, setSaveAttempted] = useState(false);
-  // Add flag to prevent restoring from local storage on initial load
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [initializationComplete, setInitializationComplete] = useState(false);
 
   useEffect(() => {
     if (existingArticle) {
@@ -134,54 +136,62 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
       setTagsInput(existingArticle.tags?.join(", ") || "");
     }
     
-    // Mark that initial load is complete after setting state from existingArticle
-    setInitialLoadComplete(true);
+    setInitializationComplete(true);
   }, [existingArticle]);
 
   useEffect(() => {
-    // Skip draft restoration on initial render or if saving has been attempted
-    if (!initialLoadComplete || saveAttempted) return;
-    
-    // Skip draft restoration if editing an existing article
-    if (isEditing) return;
-    
-    const savedContent = localStorage.getItem('article-draft');
-    if (savedContent) {
-      try {
-        const parsedContent = JSON.parse(savedContent);
-        if (parsedContent) {
-          setArticle(prev => ({...prev, ...parsedContent}));
-          if (parsedContent.tagsInput) {
-            setTagsInput(parsedContent.tagsInput);
+    if (!initializationComplete || isEditing || draftRestored || saveAttempted) {
+      return;
+    }
+
+    try {
+      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (savedDraft) {
+        const parsedDraft = JSON.parse(savedDraft);
+        if (parsedDraft) {
+          setArticle(prev => ({...prev, ...parsedDraft.article}));
+          if (parsedDraft.tagsInput) {
+            setTagsInput(parsedDraft.tagsInput);
           }
           
-          // Only show toast once per session, not on every render
           toast({
             title: "Чернетку відновлено",
             description: "Відновлено незбережену статтю з попереднього сеансу",
           });
+          
+          setDraftRestored(true);
         }
-      } catch (e) {
-        console.error("Error parsing saved content:", e);
       }
+    } catch (error) {
+      console.error("Error restoring draft:", error);
     }
-  }, [initialLoadComplete, saveAttempted, isEditing, toast]);
-  
-  // Separate effect for saving to localStorage to prevent it from running on every render
+  }, [initializationComplete, isEditing, draftRestored, saveAttempted, toast]);
+
   useEffect(() => {
-    // Only save to localStorage after initial load and if not editing
-    if (!initialLoadComplete || isEditing) return;
+    if (!initializationComplete || isEditing || saveAttempted) {
+      return;
+    }
     
-    // Save when unmounting if we haven't attempted to save yet
-    return () => {
-      if (!saveAttempted && !isEditing) {
-        localStorage.setItem('article-draft', JSON.stringify({
-          ...article,
-          tagsInput,
+    const autosaveTimer = setTimeout(() => {
+      if (!isEditing) {
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
+          article: article,
+          tagsInput: tagsInput,
+          lastSaved: new Date().toISOString()
         }));
       }
+    }, 2000);
+    
+    return () => clearTimeout(autosaveTimer);
+  }, [article, tagsInput, initializationComplete, isEditing, saveAttempted]);
+
+  useEffect(() => {
+    return () => {
+      if (saveAttempted) {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      }
     };
-  }, [article, tagsInput, initialLoadComplete, saveAttempted, isEditing]);
+  }, [saveAttempted]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -200,7 +210,6 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    // CRITICAL FIX: Prevent default form submission to avoid page reload
     e.preventDefault();
     
     if (!article.title || !article.content || !article.summary) {
@@ -264,7 +273,6 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
 
       console.log("Saving article:", articleData);
       
-      // Check authentication status before saving
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast({
@@ -285,11 +293,9 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         throw error;
       }
 
-      // Clear draft from localStorage on successful save
-      localStorage.removeItem('article-draft');
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
 
       if (onSave) {
-        // Create a complete article object to pass to the onSave handler
         const savedArticle = {
           id: articleId,
           title: article.title || "",
@@ -302,9 +308,8 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
           tags: formattedTags,
         };
         
-        // Call the onSave callback with the saved article
         onSave(savedArticle);
-        return; // Important: stop execution after calling onSave
+        return;
       }
 
       toast({
@@ -312,24 +317,21 @@ const ArticleEditor = ({ existingArticle, onSave, onCancel }: ArticleEditorProps
         description: "Зміни успішно збережено.",
       });
 
-      // Only reset form if we're not using onSave callback
-      if (!onSave) {
-        setArticle({
-          id: "",
-          title: "",
-          content: "",
-          summary: "",
-          imageUrl: "",
-          publishDate: new Date(),
-          category: "Загальні новини",
-          author: "Адміністратор",
-          tags: [],
-        });
-        setTagsInput("");
-        setImageFile(null);
-        if (editorRef.current) {
-          editorRef.current.innerHTML = "";
-        }
+      setArticle({
+        id: "",
+        title: "",
+        content: "",
+        summary: "",
+        imageUrl: "",
+        publishDate: new Date(),
+        category: "Загальні новини",
+        author: "Адміністратор",
+        tags: [],
+      });
+      setTagsInput("");
+      setImageFile(null);
+      if (editorRef.current) {
+        editorRef.current.innerHTML = "";
       }
     } catch (error) {
       console.error("Error in handleSubmit:", error);

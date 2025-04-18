@@ -15,7 +15,7 @@ import { NewsArticle } from "@/types";
 const CMSPage = () => {
   const { isAdmin, user, loading, checkAdminStatus } = useAuth();
   const [checkingAdmin, setCheckingAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState("articles");
+  const [activeTab, setActiveTab] = useState<"articles" | "create" | "edit">("articles");
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -86,6 +86,11 @@ const CMSPage = () => {
   const handleCloseEditor = () => {
     setEditingArticle(null);
     setActiveTab("articles");
+  };
+
+  const handleCreateNewArticle = () => {
+    setEditingArticle(null);
+    setActiveTab("create");
   };
 
   // Navigate to members page without page reload
@@ -171,7 +176,7 @@ const CMSPage = () => {
             </div>
           </div>
           
-          {editingArticle ? (
+          {activeTab === "edit" && editingArticle ? (
             <div>
               <ArticleEditor 
                 existingArticle={editingArticle} 
@@ -179,27 +184,18 @@ const CMSPage = () => {
                 onCancel={handleCloseEditor} 
               />
             </div>
+          ) : activeTab === "create" ? (
+            <div>
+              <ArticleEditor 
+                onSave={handleArticleSave} 
+                onCancel={handleCloseEditor} 
+              />
+            </div>
           ) : (
-            <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="articles">
-              <TabsList className="mb-4">
-                <TabsTrigger value="articles">Новини</TabsTrigger>
-                <TabsTrigger value="create">Створити новину</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="articles">
-                <ArticlesList 
-                  onEdit={handleEditArticle}
-                  onNew={() => setActiveTab("create")} 
-                />
-              </TabsContent>
-              
-              <TabsContent value="create">
-                <ArticleEditor 
-                  onSave={handleArticleSave} 
-                  onCancel={() => setActiveTab("articles")} 
-                />
-              </TabsContent>
-            </Tabs>
+            <ArticlesList 
+              onEdit={handleEditArticle}
+              onNew={handleCreateNewArticle} 
+            />
           )}
         </div>
       </main>
