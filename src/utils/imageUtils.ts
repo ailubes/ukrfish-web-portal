@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -71,29 +72,42 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
   try {
     console.log("Starting image upload process...");
     
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      throw new Error('Authentication required to upload images');
+    // First check for an active session
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !sessionData.session) {
+      console.error("No authenticated session found:", sessionError);
+      throw new Error('Потрібна авторизація для завантаження зображень');
     }
     
+    const userId = sessionData.session.user.id;
+    
+    // Check admin permissions
     const { data: userProfile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', session.user.id)
+      .eq('id', userId)
       .single();
     
     if (profileError) {
       console.error("Error checking user role:", profileError);
-      throw new Error('Could not verify admin privileges');
+      throw new Error('Не вдалося перевірити права адміністратора');
     }
     
     if (userProfile?.role !== 'admin') {
-      throw new Error('Admin privileges required to upload images');
+      console.error("User is not an admin:", userId);
+      throw new Error('Для завантаження зображень потрібні права адміністратора');
     }
     
+    // Check if bucket exists, create if not
     const { data: buckets, error: bucketsError } = await supabase
       .storage
       .listBuckets();
+    
+    if (bucketsError) {
+      console.error("Error listing buckets:", bucketsError);
+      throw new Error('Не вдалося отримати список сховищ');
+    }
     
     console.log("Available buckets:", buckets);
     
@@ -108,17 +122,19 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
       
       if (createBucketError) {
         console.error("Error creating bucket:", createBucketError);
-        throw new Error(`Could not create storage bucket: ${createBucketError.message}`);
+        throw new Error(`Не вдалося створити сховище: ${createBucketError.message}`);
       }
       console.log(`Bucket '${bucketName}' created successfully`);
     }
     
+    // Generate a unique file name
     const fileExt = file.name.split('.').pop() || 'jpg';
     const fileName = `${uuidv4()}.${fileExt}`;
     const filePath = fileName;
 
     console.log("Uploading file:", filePath);
     
+    // Resize large images
     let fileToUpload = file;
     if (file.size > 500 * 1024) {
       try {
@@ -130,6 +146,7 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
       }
     }
     
+    // Attempt upload with retries
     let uploadAttempts = 0;
     let data;
     let error;
@@ -152,11 +169,12 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
 
     if (error) {
       console.error("Upload error after retries:", error);
-      throw error;
+      throw new Error(`Помилка завантаження: ${error.message}`);
     }
 
     console.log("Upload successful:", data);
 
+    // Get the public URL for the uploaded file
     const { data: { publicUrl } } = supabase.storage.from(bucketName).getPublicUrl(filePath);
     console.log("Generated public URL:", publicUrl);
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -12,20 +11,27 @@ import { useAuth } from "@/hooks/useAuth";
 import { NewsArticle } from "@/types";
 
 const CMSPage = () => {
-  const { isAdmin, user, loading, checkAdminStatus } = useAuth();
-  const [checkingAdmin, setCheckingAdmin] = useState(false);
+  const { isAdmin, user, loading } = useAuth();
+  const [accessChecked, setAccessChecked] = useState(false);
   const [currentView, setCurrentView] = useState<"articles" | "create" | "edit">("articles");
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Use useCallback to prevent infinite loops
-  const checkAccess = useCallback(async () => {
-    if (checkingAdmin) return; // Prevent concurrent checks
-    
-    setCheckingAdmin(true);
-    
-    try {
+  // Check admin access on component mount
+  useEffect(() => {
+    // Set a timeout to prevent infinite loading
+    const accessCheckTimeout = setTimeout(() => {
+      if (!accessChecked) {
+        setAccessChecked(true);
+        console.log("Admin check timed out - proceeding with current state");
+      }
+    }, 5000); // 5 second timeout
+
+    // Only run the check when loading is complete
+    if (!loading) {
+      console.log("Loading complete, checking admin access", { user, isAdmin });
+      
       if (!user) {
         toast({
           title: "Доступ заборонено",
@@ -33,13 +39,7 @@ const CMSPage = () => {
           variant: "destructive",
         });
         navigate("/login");
-        return;
-      }
-      
-      const isUserAdmin = await checkAdminStatus();
-      console.log("Admin check result in CMSPage:", isUserAdmin);
-      
-      if (!isUserAdmin) {
+      } else if (!isAdmin) {
         toast({
           title: "Доступ заборонено",
           description: "У вас немає прав адміністратора",
@@ -47,23 +47,12 @@ const CMSPage = () => {
         });
         navigate("/");
       }
-    } catch (error) {
-      console.error("Error in access check:", error);
-      toast({
-        title: "Помилка",
-        description: "Виникла помилка при перевірці доступу",
-        variant: "destructive",
-      });
-      navigate("/");
-    } finally {
-      setCheckingAdmin(false);
+      
+      setAccessChecked(true);
     }
-  }, [user, navigate, toast, checkAdminStatus, checkingAdmin]);
-
-  // Run admin check only once when component mounts or user changes
-  useEffect(() => {
-    checkAccess();
-  }, [checkAccess]);
+    
+    return () => clearTimeout(accessCheckTimeout);
+  }, [loading, user, isAdmin, navigate, toast, accessChecked]);
 
   const handleArticleSave = useCallback(() => {
     // Clear draft first before changing view to prevent draft restoration
@@ -110,7 +99,8 @@ const CMSPage = () => {
     navigate("/admin/dashboard");
   }, [navigate]);
 
-  if (loading || checkingAdmin) {
+  // Show loading state when either auth is loading or access check is pending
+  if (loading || !accessChecked) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
@@ -125,6 +115,7 @@ const CMSPage = () => {
     );
   }
 
+  // This will never execute if the useEffect redirects, but we keep it as a fallback
   if (!user || !isAdmin) {
     return (
       <div className="min-h-screen flex flex-col">
