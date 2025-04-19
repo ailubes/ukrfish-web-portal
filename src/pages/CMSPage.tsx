@@ -66,11 +66,11 @@ const CMSPage = () => {
   }, [checkAccess]);
 
   const handleArticleSave = useCallback(() => {
+    // Clear draft first before changing view to prevent draft restoration
+    localStorage.removeItem('article-draft-v4');
+    
     setEditingArticle(null);
     setCurrentView("articles");
-    
-    // Clear draft on successful save - using a direct call instead of depending on effect
-    localStorage.removeItem('article-draft-v4');
     
     toast({
       title: "Статтю збережено",
@@ -87,10 +87,11 @@ const CMSPage = () => {
 
   const handleCloseEditor = useCallback(() => {
     if (window.confirm("Ви впевнені? Незбережені зміни будуть втрачені.")) {
+      // Clear draft first to prevent restoration
+      localStorage.removeItem('article-draft-v4');
+      
       setEditingArticle(null);
       setCurrentView("articles");
-      // Clear any draft when cancelling
-      localStorage.removeItem('article-draft-v4');
     }
   }, []);
 

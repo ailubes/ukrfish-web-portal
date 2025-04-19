@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -18,11 +17,10 @@ export const resizeImage = (file: File, maxSizeKB: number = 100): Promise<Blob> 
           return;
         }
 
-        // Calculate the scaling factor to reduce file size
         let width = img.width;
         let height = img.height;
-        const maxWidth = 800; // Max width for resized image
-        const maxHeight = 600; // Max height for resized image
+        const maxWidth = 800;
+        const maxHeight = 600;
 
         if (width > height) {
           if (width > maxWidth) {
@@ -40,14 +38,12 @@ export const resizeImage = (file: File, maxSizeKB: number = 100): Promise<Blob> 
         canvas.height = height;
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Convert to blob and check size
         canvas.toBlob((blob) => {
           if (!blob) {
             reject(new Error('Could not convert canvas to blob'));
             return;
           }
 
-          // If blob is still too large, reduce quality
           if (blob.size > maxSizeKB * 1024) {
             const quality = Math.max(0.1, 0.9 * (maxSizeKB * 1024) / blob.size);
             canvas.toBlob((smallerBlob) => {
@@ -71,19 +67,15 @@ export const resizeImage = (file: File, maxSizeKB: number = 100): Promise<Blob> 
   });
 };
 
-// Skip bucket creation entirely - this is causing the RLS issues
-// Instead, just check if the bucket exists and use it
 export const uploadImageToSupabase = async (file: File, bucketName: string = 'images'): Promise<string> => {
   try {
     console.log("Starting image upload process...");
     
-    // Check authentication status first
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       throw new Error('Authentication required to upload images');
     }
     
-    // Check user role (admin only)
     const { data: userProfile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
@@ -99,16 +91,36 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
       throw new Error('Admin privileges required to upload images');
     }
     
-    // Generate a unique filename
+    const { data: buckets, error: bucketsError } = await supabase
+      .storage
+      .listBuckets();
+    
+    console.log("Available buckets:", buckets);
+    
+    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+    
+    if (!bucketExists) {
+      console.log(`Bucket '${bucketName}' doesn't exist, creating it...`);
+      const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 1024 * 1024 * 2,
+      });
+      
+      if (createBucketError) {
+        console.error("Error creating bucket:", createBucketError);
+        throw new Error(`Could not create storage bucket: ${createBucketError.message}`);
+      }
+      console.log(`Bucket '${bucketName}' created successfully`);
+    }
+    
     const fileExt = file.name.split('.').pop() || 'jpg';
     const fileName = `${uuidv4()}.${fileExt}`;
     const filePath = fileName;
 
     console.log("Uploading file:", filePath);
     
-    // Resize image before upload to reduce size if it's too large
     let fileToUpload = file;
-    if (file.size > 500 * 1024) { // If larger than 500KB, resize it
+    if (file.size > 500 * 1024) {
       try {
         const resizedBlob = await resizeImage(file, 500);
         fileToUpload = new File([resizedBlob], file.name, { type: file.type });
@@ -118,29 +130,33 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
       }
     }
     
-    // Upload to Supabase
-    const { data, error } = await supabase.storage
-      .from(bucketName)
-      .upload(filePath, fileToUpload, {
-        cacheControl: '3600',
-        upsert: true,
-        contentType: file.type
-      });
+    let uploadAttempts = 0;
+    let data;
+    let error;
+    
+    while (uploadAttempts < 3) {
+      ({ data, error } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, fileToUpload, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type
+        }));
+        
+      if (!error) break;
+      
+      uploadAttempts++;
+      console.log(`Upload attempt ${uploadAttempts} failed:`, error);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
 
     if (error) {
-      // If the bucket doesn't exist, inform the user more clearly
-      if (error.message.includes("The resource was not found") || 
-          error.message.includes("does not exist")) {
-        console.error("Storage bucket doesn't exist:", bucketName);
-        throw new Error(`The storage bucket '${bucketName}' doesn't exist. Please create it in the Supabase dashboard.`);
-      }
-      console.error("Upload error:", error);
+      console.error("Upload error after retries:", error);
       throw error;
     }
 
     console.log("Upload successful:", data);
 
-    // Generate public URL
     const { data: { publicUrl } } = supabase.storage.from(bucketName).getPublicUrl(filePath);
     console.log("Generated public URL:", publicUrl);
 

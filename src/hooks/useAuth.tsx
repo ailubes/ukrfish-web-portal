@@ -29,6 +29,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     try {
       console.log("Checking admin status for user:", user.id);
+      
+      // Explicitly get the current session first to ensure we're authenticated
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        console.error("No active session when checking admin status");
+        return false;
+      }
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('role')

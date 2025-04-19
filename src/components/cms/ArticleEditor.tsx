@@ -128,7 +128,7 @@ const ArticleEditor = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [hasDraftBeenRestored, setHasDraftBeenRestored] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [draftInitialized, setDraftInitialized] = useState(false);
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
   const isEditing = !!existingArticle?.id;
@@ -139,54 +139,55 @@ const ArticleEditor = ({
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   
-  // Only run the initialization effect once to prevent loops
+  // Initialize the component based on whether we're editing or creating
   useEffect(() => {
-    if (isInitialized) return;
+    if (draftInitialized) return;
     
-    const initializeArticle = () => {
-      if (existingArticle) {
-        // When editing, initialize with existing article & clear any drafts
-        console.log("Initializing editor with existing article:", existingArticle.id);
-        setArticle(existingArticle);
-        setTagsInput(existingArticle.tags?.join(", ") || "");
-        localStorage.removeItem(draftStorageKey);
-      } else {
-        // When creating new, try to load draft
-        try {
-          const savedDraft = localStorage.getItem(draftStorageKey);
-          if (savedDraft) {
-            const parsedDraft = JSON.parse(savedDraft);
-            if (parsedDraft && parsedDraft.article) {
-              console.log("Restoring draft:", parsedDraft.lastSaved);
-              setArticle(prev => ({...prev, ...parsedDraft.article}));
-              if (parsedDraft.tagsInput) {
-                setTagsInput(parsedDraft.tagsInput);
-              }
-              
-              if (!hasDraftBeenRestored) {
-                toast({
-                  title: "Чернетку відновлено",
-                  description: "Відновлено незбережену статтю з попереднього сеансу",
-                });
-                setHasDraftBeenRestored(true);
-              }
+    if (existingArticle?.id) {
+      // When editing an existing article, use its data and clear any drafts
+      console.log("Initializing editor with existing article:", existingArticle.id);
+      setArticle(existingArticle);
+      setTagsInput(existingArticle.tags?.join(", ") || "");
+      localStorage.removeItem(draftStorageKey);
+      setDraftInitialized(true);
+    } else {
+      // When creating new, try to load draft
+      try {
+        const savedDraft = localStorage.getItem(draftStorageKey);
+        
+        if (savedDraft) {
+          const parsedDraft = JSON.parse(savedDraft);
+          if (parsedDraft && parsedDraft.article) {
+            console.log("Restoring draft from:", parsedDraft.lastSaved);
+            setArticle(prev => ({...prev, ...parsedDraft.article}));
+            
+            if (parsedDraft.tagsInput) {
+              setTagsInput(parsedDraft.tagsInput);
+            }
+            
+            if (!hasDraftBeenRestored) {
+              toast({
+                title: "Чернетку відновлено",
+                description: "Відновлено незбережену статтю з попереднього сеансу",
+              });
+              setHasDraftBeenRestored(true);
             }
           }
-        } catch (error) {
-          console.error("Error restoring draft:", error);
-          // If draft restoration fails, clear it to avoid future errors
-          localStorage.removeItem(draftStorageKey);
         }
+        
+        setDraftInitialized(true);
+      } catch (error) {
+        console.error("Error restoring draft:", error);
+        // If draft restoration fails, clear it to avoid future errors
+        localStorage.removeItem(draftStorageKey);
+        setDraftInitialized(true);
       }
-    };
-    
-    initializeArticle();
-    setIsInitialized(true);
-  }, [existingArticle, toast, draftStorageKey, hasDraftBeenRestored, isInitialized]);
+    }
+  }, [existingArticle, toast, draftStorageKey, hasDraftBeenRestored, draftInitialized]);
 
   // Setup autosave with debounce
   useEffect(() => {
-    if (!isInitialized || isEditing) return;
+    if (!draftInitialized || isEditing) return;
     
     const autosaveTimer = setTimeout(() => {
       try {
@@ -205,7 +206,7 @@ const ArticleEditor = ({
     }, 3000); // Debounce to prevent excessive saves
     
     return () => clearTimeout(autosaveTimer);
-  }, [article, tagsInput, isEditing, draftStorageKey, isInitialized]);
+  }, [article, tagsInput, isEditing, draftStorageKey, draftInitialized]);
 
   // Handle form field changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -329,7 +330,10 @@ const ArticleEditor = ({
           tags: formattedTags,
         };
         
-        // Ensure clean completion before triggering parent callback
+        // Make sure to clear the draft before triggering parent callback
+        localStorage.removeItem(draftStorageKey);
+        
+        // Use a small timeout to ensure state updates complete
         setTimeout(() => {
           onSave(savedArticle);
         }, 100);
