@@ -71,7 +71,7 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
   try {
     console.log("Starting image upload process...");
     
-    // First check for an active session
+    // Check for an active session
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError || !sessionData.session) {
@@ -81,37 +81,6 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
     
     const userId = sessionData.session.user.id;
     console.log("Authenticated user ID:", userId);
-    
-    // Check if bucket exists, create if not
-    const { data: buckets, error: bucketsError } = await supabase
-      .storage
-      .listBuckets();
-    
-    if (bucketsError) {
-      console.error("Error listing buckets:", bucketsError);
-      throw new Error('Не вдалося отримати список сховищ');
-    }
-    
-    console.log("Available buckets:", buckets);
-    
-    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
-    
-    if (!bucketExists) {
-      console.log(`Bucket '${bucketName}' doesn't exist, creating it...`);
-      const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
-        public: true, // Make the bucket public
-        fileSizeLimit: 1024 * 1024 * 5, // 5MB limit
-      });
-      
-      if (createBucketError) {
-        console.error("Error creating bucket:", createBucketError);
-        throw new Error(`Не вдалося створити сховище: ${createBucketError.message}`);
-      }
-      console.log(`Bucket '${bucketName}' created successfully`);
-      
-      // Add bucket policies after creation
-      await setupBucketPolicy(bucketName);
-    }
     
     // Generate a unique file name
     const fileExt = file.name.split('.').pop() || 'jpg';
@@ -134,8 +103,7 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
     
     // Attempt upload with retries
     let uploadAttempts = 0;
-    let data;
-    let error;
+    let data, error;
     
     while (uploadAttempts < 3) {
       ({ data, error } = await supabase.storage
@@ -170,24 +138,3 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
     throw error;
   }
 };
-
-// Helper function to set up proper bucket policies
-async function setupBucketPolicy(bucketName: string) {
-  try {
-    // Grant public access to read files in the bucket
-    const { error: policyError } = await supabase.storage
-      .from(bucketName)
-      .createSignedUrl('dummy.txt', 1); // This is just to check if we can create policies
-
-    if (policyError && policyError.message !== "The resource was not found") {
-      console.error("Error checking bucket permissions:", policyError);
-    }
-    
-    console.log("Bucket policy setup attempted, check Supabase console to verify");
-    
-    return true;
-  } catch (error) {
-    console.error("Error setting up bucket policy:", error);
-    return false;
-  }
-}
