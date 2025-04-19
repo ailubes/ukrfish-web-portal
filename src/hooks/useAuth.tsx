@@ -76,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const isUserAdmin = await checkAdminStatus();
               if (mounted) {
                 setIsAdmin(isUserAdmin);
+                console.log("Admin status set to:", isUserAdmin);
               }
             } catch (error) {
               console.error("Error checking admin status:", error);
@@ -105,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const isUserAdmin = await checkAdminStatus();
           if (mounted) {
             setIsAdmin(isUserAdmin);
+            console.log("Initial admin status set to:", isUserAdmin);
           }
         }
       } catch (error) {

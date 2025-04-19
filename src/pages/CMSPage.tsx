@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { NewsArticle } from "@/types";
 
 const CMSPage = () => {
-  const { isAdmin, user, loading } = useAuth();
+  const { isAdmin, user, loading, checkAdminStatus } = useAuth();
   const [accessChecked, setAccessChecked] = useState(false);
   const [currentView, setCurrentView] = useState<"articles" | "create" | "edit">("articles");
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
@@ -20,39 +20,65 @@ const CMSPage = () => {
 
   // Check admin access on component mount
   useEffect(() => {
+    let isMounted = true;
+    
     // Set a timeout to prevent infinite loading
     const accessCheckTimeout = setTimeout(() => {
-      if (!accessChecked) {
+      if (isMounted && !accessChecked) {
         setAccessChecked(true);
         console.log("Admin check timed out - proceeding with current state");
       }
     }, 5000); // 5 second timeout
 
-    // Only run the check when loading is complete
-    if (!loading) {
-      console.log("Loading complete, checking admin access", { user, isAdmin });
-      
-      if (!user) {
-        toast({
-          title: "Доступ заборонено",
-          description: "Будь ласка, увійдіть в систему",
-          variant: "destructive",
-        });
-        navigate("/login");
-      } else if (!isAdmin) {
-        toast({
-          title: "Доступ заборонено",
-          description: "У вас немає прав адміністратора",
-          variant: "destructive",
-        });
-        navigate("/");
+    const verifyAdmin = async () => {
+      try {
+        // Only run the check when loading is complete
+        if (!loading) {
+          console.log("Loading complete, checking admin access", { user, isAdmin });
+          
+          if (!user) {
+            if (isMounted) {
+              toast({
+                title: "Доступ заборонено",
+                description: "Будь ласка, увійдіть в систему",
+                variant: "destructive",
+              });
+              navigate("/login");
+            }
+          } else {
+            // Force refresh admin status
+            const adminStatus = await checkAdminStatus();
+            console.log("Admin status check result:", adminStatus);
+            
+            if (!adminStatus && isMounted) {
+              toast({
+                title: "Доступ заборонено",
+                description: "У вас немає прав адміністратора",
+                variant: "destructive",
+              });
+              navigate("/");
+            }
+          }
+          
+          if (isMounted) {
+            setAccessChecked(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error verifying admin status:", error);
+        if (isMounted) {
+          setAccessChecked(true);
+        }
       }
-      
-      setAccessChecked(true);
-    }
+    };
     
-    return () => clearTimeout(accessCheckTimeout);
-  }, [loading, user, isAdmin, navigate, toast, accessChecked]);
+    verifyAdmin();
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(accessCheckTimeout);
+    };
+  }, [loading, user, isAdmin, navigate, toast, accessChecked, checkAdminStatus]);
 
   const handleArticleSave = useCallback(() => {
     // Clear draft first before changing view to prevent draft restoration

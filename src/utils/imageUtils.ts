@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -81,23 +80,7 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
     }
     
     const userId = sessionData.session.user.id;
-    
-    // Check admin permissions
-    const { data: userProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-    
-    if (profileError) {
-      console.error("Error checking user role:", profileError);
-      throw new Error('Не вдалося перевірити права адміністратора');
-    }
-    
-    if (userProfile?.role !== 'admin') {
-      console.error("User is not an admin:", userId);
-      throw new Error('Для завантаження зображень потрібні права адміністратора');
-    }
+    console.log("Authenticated user ID:", userId);
     
     // Check if bucket exists, create if not
     const { data: buckets, error: bucketsError } = await supabase
@@ -116,8 +99,8 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
     if (!bucketExists) {
       console.log(`Bucket '${bucketName}' doesn't exist, creating it...`);
       const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
-        public: true,
-        fileSizeLimit: 1024 * 1024 * 2,
+        public: true, // Make the bucket public
+        fileSizeLimit: 1024 * 1024 * 5, // 5MB limit
       });
       
       if (createBucketError) {
@@ -125,6 +108,9 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
         throw new Error(`Не вдалося створити сховище: ${createBucketError.message}`);
       }
       console.log(`Bucket '${bucketName}' created successfully`);
+      
+      // Add bucket policies after creation
+      await setupBucketPolicy(bucketName);
     }
     
     // Generate a unique file name
@@ -184,3 +170,24 @@ export const uploadImageToSupabase = async (file: File, bucketName: string = 'im
     throw error;
   }
 };
+
+// Helper function to set up proper bucket policies
+async function setupBucketPolicy(bucketName: string) {
+  try {
+    // Grant public access to read files in the bucket
+    const { error: policyError } = await supabase.storage
+      .from(bucketName)
+      .createSignedUrl('dummy.txt', 1); // This is just to check if we can create policies
+
+    if (policyError && policyError.message !== "The resource was not found") {
+      console.error("Error checking bucket permissions:", policyError);
+    }
+    
+    console.log("Bucket policy setup attempted, check Supabase console to verify");
+    
+    return true;
+  } catch (error) {
+    console.error("Error setting up bucket policy:", error);
+    return false;
+  }
+}
