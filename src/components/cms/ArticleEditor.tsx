@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { NewsArticle } from "@/types";
@@ -110,7 +109,6 @@ const ArticleEditor = ({
   onCancel, 
   draftStorageKey = 'article-draft-v4' 
 }: ArticleEditorProps) => {
-  // Base article state with default values
   const [article, setArticle] = useState<Partial<NewsArticle>>({
     id: "",
     title: "",
@@ -133,25 +131,21 @@ const ArticleEditor = ({
   const { user, isAdmin } = useAuth();
   const isEditing = !!existingArticle?.id;
   
-  // Refs for DOM elements
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   
-  // Initialize the component based on whether we're editing or creating
   useEffect(() => {
     if (draftInitialized) return;
     
     if (existingArticle?.id) {
-      // When editing an existing article, use its data and clear any drafts
       console.log("Initializing editor with existing article:", existingArticle.id);
       setArticle(existingArticle);
       setTagsInput(existingArticle.tags?.join(", ") || "");
       localStorage.removeItem(draftStorageKey);
       setDraftInitialized(true);
     } else {
-      // When creating new, try to load draft
       try {
         const savedDraft = localStorage.getItem(draftStorageKey);
         
@@ -178,20 +172,17 @@ const ArticleEditor = ({
         setDraftInitialized(true);
       } catch (error) {
         console.error("Error restoring draft:", error);
-        // If draft restoration fails, clear it to avoid future errors
         localStorage.removeItem(draftStorageKey);
         setDraftInitialized(true);
       }
     }
   }, [existingArticle, toast, draftStorageKey, hasDraftBeenRestored, draftInitialized]);
 
-  // Setup autosave with debounce
   useEffect(() => {
     if (!draftInitialized || isEditing) return;
     
     const autosaveTimer = setTimeout(() => {
       try {
-        // Only save draft if we have content
         if (article.title || article.content || article.summary || tagsInput) {
           localStorage.setItem(draftStorageKey, JSON.stringify({
             article: article,
@@ -203,12 +194,11 @@ const ArticleEditor = ({
       } catch (error) {
         console.error("Error saving draft:", error);
       }
-    }, 3000); // Debounce to prevent excessive saves
+    }, 3000);
     
     return () => clearTimeout(autosaveTimer);
   }, [article, tagsInput, isEditing, draftStorageKey, draftInitialized]);
 
-  // Handle form field changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setArticle((prev) => ({ ...prev, [name]: value }));
@@ -251,7 +241,6 @@ const ArticleEditor = ({
     try {
       const formattedTags = formatTags(tagsInput);
 
-      // Make sure we have the latest editor content
       if (editorRef.current) {
         setArticle(prev => ({
           ...prev,
@@ -261,7 +250,6 @@ const ArticleEditor = ({
 
       const articleId = article.id || uuidv4();
       
-      // Normalize publish date
       let publishDate: string;
       try {
         if (typeof article.publishDate === 'string') {
@@ -276,7 +264,6 @@ const ArticleEditor = ({
         publishDate = new Date().toISOString();
       }
       
-      // Prepare data for Supabase
       const articleData = {
         id: articleId,
         title: article.title,
@@ -291,32 +278,27 @@ const ArticleEditor = ({
 
       console.log("Saving article:", articleData);
       
-      // Verify session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({
-          title: "Помилка аутентифікації",
-          description: "Будь ласка, увійдіть в систему перед збереженням статті.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-      
-      // Save to Supabase
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('news_articles')
-        .upsert(articleData as any);
+        .upsert(articleData, { onConflict: 'id', returning: 'minimal' });
 
       if (error) {
         console.error("Error saving article:", error);
+        
+        if (error.code === '42501' || error.message.includes('policy')) {
+          console.error("This appears to be a Row Level Security policy error. Check RLS policies for news_articles table.");
+          
+          const isUserAdmin = await checkAdminStatus();
+          console.log("Admin status re-check:", isUserAdmin);
+          
+          throw new Error(`Помилка доступу: ${error.message}. Перевірте, чи маєте права адміністратора.`);
+        }
+        
         throw error;
       }
 
-      // Clear draft immediately after successful save
       localStorage.removeItem(draftStorageKey);
 
-      // If parent component provided onSave callback, use it
       if (onSave) {
         const savedArticle = {
           id: articleId,
@@ -330,23 +312,19 @@ const ArticleEditor = ({
           tags: formattedTags,
         };
         
-        // Make sure to clear the draft before triggering parent callback
         localStorage.removeItem(draftStorageKey);
         
-        // Use a small timeout to ensure state updates complete
         setTimeout(() => {
           onSave(savedArticle);
         }, 100);
         return;
       }
 
-      // Show success message
       toast({
         title: isEditing ? "Новину оновлено" : "Новину створено",
         description: "Зміни успішно збережено.",
       });
 
-      // Reset form if no parent callback
       setArticle({
         id: "",
         title: "",
@@ -375,6 +353,26 @@ const ArticleEditor = ({
     }
   };
 
+  const checkAdminStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user?.id)
+        .single();
+      
+      if (error) {
+        console.error("Error checking admin status:", error);
+        return false;
+      }
+      
+      return data?.role === 'admin';
+    } catch (error) {
+      console.error("Exception checking admin status:", error);
+      return false;
+    }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -386,10 +384,8 @@ const ArticleEditor = ({
         description: "Зображення завантажується, зачекайте, будь ласка.",
       });
       
-      // Upload to Supabase
       const uploadedImageUrl = await uploadImageToSupabase(file);
       
-      // Insert image at cursor position or at the end
       if (editorRef.current) {
         const selection = window.getSelection();
         if (selection && selection.rangeCount > 0) {
@@ -406,17 +402,14 @@ const ArticleEditor = ({
           selection.removeAllRanges();
           selection.addRange(range);
           
-          // Update content state
           setArticle(prev => ({ 
             ...prev, 
             content: editorRef.current?.innerHTML || prev.content || "" 
           }));
         } else {
-          // If no selection, add at the end
           const imgHtml = `<img src="${uploadedImageUrl}" alt="${file.name}" style="max-width: 100%;" class="my-2" />`;
           editorRef.current.innerHTML += imgHtml;
           
-          // Update content state
           setArticle(prev => ({ 
             ...prev, 
             content: editorRef.current?.innerHTML || prev.content || "" 
@@ -438,19 +431,18 @@ const ArticleEditor = ({
       });
     } finally {
       setIsImageUploading(false);
-      // Reset file input
       if (imageInputRef.current) {
         imageInputRef.current.value = '';
       }
     }
   };
-  
+
   const handleCoverImageUpload = () => {
     if (coverImageInputRef.current) {
       coverImageInputRef.current.click();
     }
   };
-  
+
   const insertCoverImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -462,10 +454,8 @@ const ArticleEditor = ({
         description: "Зображення завантажується, зачекайте, будь ласка.",
       });
       
-      // Upload to Supabase
       const uploadedImageUrl = await uploadImageToSupabase(file);
       
-      // Update article state with cover image URL
       setArticle(prev => ({ ...prev, imageUrl: uploadedImageUrl }));
       setImageFile(file);
       
@@ -482,7 +472,6 @@ const ArticleEditor = ({
       });
     } finally {
       setIsImageUploading(false);
-      // Reset file input
       if (coverImageInputRef.current) {
         coverImageInputRef.current.value = '';
       }
@@ -495,7 +484,6 @@ const ArticleEditor = ({
     }
   };
 
-  // Editor commands
   const executeCommand = (command: string, value: string = '') => {
     if (editorRef.current && document.activeElement !== editorRef.current) {
       editorRef.current.focus();
@@ -503,7 +491,6 @@ const ArticleEditor = ({
     
     document.execCommand(command, false, value);
     
-    // Update content state after command execution
     if (editorRef.current) {
       setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
     }
@@ -542,8 +529,7 @@ const ArticleEditor = ({
       executeCommand('createLink', url);
     }
   };
-  
-  // Set up editor when component mounts
+
   useEffect(() => {
     if (editorRef.current) {
       editorRef.current.contentEditable = 'true';
@@ -562,7 +548,6 @@ const ArticleEditor = ({
     }
   }, []);
 
-  // Add editor styles to document
   useEffect(() => {
     const styleElement = document.createElement('style');
     styleElement.innerHTML = editorStyles;

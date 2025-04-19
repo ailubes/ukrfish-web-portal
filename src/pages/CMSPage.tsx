@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Users, LayoutDashboard, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { NewsArticle } from "@/types";
+import { ensureNewsArticlesRLSPolicies } from "@/utils/articleUtils";
 
 const CMSPage = () => {
   const { isAdmin, user, loading, checkAdminStatus } = useAuth();
@@ -79,6 +80,14 @@ const CMSPage = () => {
       clearTimeout(accessCheckTimeout);
     };
   }, [loading, user, isAdmin, navigate, toast, accessChecked, checkAdminStatus]);
+
+  // Run once when component mounts to ensure RLS policies exist
+  useEffect(() => {
+    if (isAdmin && user) {
+      ensureNewsArticlesRLSPolicies()
+        .catch(error => console.error("Failed to check RLS policies:", error));
+    }
+  }, [isAdmin, user]);
 
   const handleArticleSave = useCallback(() => {
     // Clear draft first before changing view to prevent draft restoration
