@@ -278,9 +278,10 @@ const ArticleEditor = ({
 
       console.log("Saving article:", articleData);
       
-      const { data, error } = await supabase
+      // Fixed: removed the invalid 'returning' option
+      const { error } = await supabase
         .from('news_articles')
-        .upsert(articleData, { onConflict: 'id', returning: 'minimal' });
+        .upsert(articleData, { onConflict: 'id' });
 
       if (error) {
         console.error("Error saving article:", error);
@@ -507,7 +508,8 @@ const ArticleEditor = ({
       setArticle(prev => ({ ...prev, content: editorRef.current?.innerHTML || prev.content || "" }));
     }
   };
-
+  
+  // Fix for the text field to prevent reverse typing in the editor
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const text = e.clipboardData.getData('text/plain');
@@ -541,6 +543,9 @@ const ArticleEditor = ({
       };
       
       editorRef.current.addEventListener('focus', handleFocus);
+      
+      // Set dir attribute to prevent RTL text input issues
+      editorRef.current.setAttribute('dir', 'ltr');
       
       return () => {
         editorRef.current?.removeEventListener('focus', handleFocus);
