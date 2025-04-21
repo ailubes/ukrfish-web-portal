@@ -19,21 +19,18 @@ const CMSPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check admin access on component mount
   useEffect(() => {
     let isMounted = true;
     
-    // Set a timeout to prevent infinite loading
     const accessCheckTimeout = setTimeout(() => {
       if (isMounted && !accessChecked) {
         setAccessChecked(true);
         console.log("Admin check timed out - proceeding with current state");
       }
-    }, 5000); // 5 second timeout
+    }, 5000);
 
     const verifyAdmin = async () => {
       try {
-        // Only run the check when loading is complete
         if (!loading) {
           console.log("Loading complete, checking admin access", { user, isAdmin });
           
@@ -47,7 +44,6 @@ const CMSPage = () => {
               navigate("/login");
             }
           } else {
-            // Force refresh admin status
             const adminStatus = await checkAdminStatus();
             console.log("Admin status check result:", adminStatus);
             
@@ -81,7 +77,6 @@ const CMSPage = () => {
     };
   }, [loading, user, isAdmin, navigate, toast, accessChecked, checkAdminStatus]);
 
-  // Run once when component mounts to ensure RLS policies exist
   useEffect(() => {
     if (isAdmin && user) {
       ensureNewsArticlesRLSPolicies()
@@ -90,7 +85,6 @@ const CMSPage = () => {
   }, [isAdmin, user]);
 
   const handleArticleSave = useCallback(() => {
-    // Clear draft first before changing view to prevent draft restoration
     localStorage.removeItem('article-draft-v4');
     
     setEditingArticle(null);
@@ -103,7 +97,6 @@ const CMSPage = () => {
   }, [toast]);
 
   const handleEditArticle = useCallback((article: NewsArticle) => {
-    // Clear any drafts before editing an existing article
     localStorage.removeItem('article-draft-v4');
     setEditingArticle(article);
     setCurrentView("edit");
@@ -111,7 +104,6 @@ const CMSPage = () => {
 
   const handleCloseEditor = useCallback(() => {
     if (window.confirm("Ви впевнені? Незбережені зміни будуть втрачені.")) {
-      // Clear draft first to prevent restoration
       localStorage.removeItem('article-draft-v4');
       
       setEditingArticle(null);
@@ -120,7 +112,6 @@ const CMSPage = () => {
   }, []);
 
   const handleCreateNewArticle = useCallback(() => {
-    // Clear any existing draft when explicitly creating a new article
     localStorage.removeItem('article-draft-v4');
     setEditingArticle(null);
     setCurrentView("create");
@@ -134,7 +125,6 @@ const CMSPage = () => {
     navigate("/admin/dashboard");
   }, [navigate]);
 
-  // Show loading state when either auth is loading or access check is pending
   if (loading || !accessChecked) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -150,7 +140,6 @@ const CMSPage = () => {
     );
   }
 
-  // This will never execute if the useEffect redirects, but we keep it as a fallback
   if (!user || !isAdmin) {
     return (
       <div className="min-h-screen flex flex-col">

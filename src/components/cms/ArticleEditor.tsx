@@ -128,7 +128,7 @@ const ArticleEditor = ({
   const [hasDraftBeenRestored, setHasDraftBeenRestored] = useState(false);
   const [draftInitialized, setDraftInitialized] = useState(false);
   const { toast } = useToast();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, checkAdminStatus } = useAuth();
   const isEditing = !!existingArticle?.id;
   
   const editorRef = useRef<HTMLDivElement>(null);
@@ -278,6 +278,7 @@ const ArticleEditor = ({
 
       console.log("Saving article:", articleData);
       
+      // Important: Ensure we're only using the news_articles table
       const { error } = await supabase
         .from('news_articles')
         .upsert(articleData, { onConflict: 'id' });
@@ -287,7 +288,7 @@ const ArticleEditor = ({
         
         if (error.code === '42501' || error.message.includes('policy')) {
           console.error("This appears to be a Row Level Security policy error. Check RLS policies for news_articles table.");
-          throw new Error(`Помилка доступу: ${error.message}. Перевірте RLS політики для таблиці new_articles.`);
+          throw new Error(`Помилка доступу: ${error.message}. Перевірте RLS політики для таблиці news_articles.`);
         }
         
         throw error;
@@ -349,26 +350,8 @@ const ArticleEditor = ({
     }
   };
 
-  const checkAdminStatus = async () => {
-    try {
-      // Only fetch from profiles table, not users table
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user?.id)
-        .single();
-      
-      if (error) {
-        console.error("Error checking admin status:", error);
-        return false;
-      }
-      
-      return data?.role === 'admin';
-    } catch (error) {
-      console.error("Exception checking admin status:", error);
-      return false;
-    }
-  };
+  // Use hook's checkAdminStatus instead of reimplementing it
+  // const { checkAdminStatus } = useAuth(); // Already destructured above
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
