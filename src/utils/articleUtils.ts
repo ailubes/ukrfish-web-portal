@@ -27,7 +27,7 @@ export const ensureNewsArticlesRLSPolicies = async (): Promise<void> => {
       return;
     }
     
-    console.log("Admin user detected, attempting to create sample article to check policies");
+    console.log("Admin user detected, checking news_articles table access");
     
     // Try to insert a test article (will be deleted immediately)
     // This will help us determine if the RLS policies are working correctly

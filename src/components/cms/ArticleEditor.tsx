@@ -278,7 +278,6 @@ const ArticleEditor = ({
 
       console.log("Saving article:", articleData);
       
-      // Fixed: removed the invalid 'returning' option
       const { error } = await supabase
         .from('news_articles')
         .upsert(articleData, { onConflict: 'id' });
@@ -288,11 +287,7 @@ const ArticleEditor = ({
         
         if (error.code === '42501' || error.message.includes('policy')) {
           console.error("This appears to be a Row Level Security policy error. Check RLS policies for news_articles table.");
-          
-          const isUserAdmin = await checkAdminStatus();
-          console.log("Admin status re-check:", isUserAdmin);
-          
-          throw new Error(`Помилка доступу: ${error.message}. Перевірте, чи маєте права адміністратора.`);
+          throw new Error(`Помилка доступу: ${error.message}. Перевірте RLS політики для таблиці new_articles.`);
         }
         
         throw error;
@@ -356,6 +351,7 @@ const ArticleEditor = ({
 
   const checkAdminStatus = async () => {
     try {
+      // Only fetch from profiles table, not users table
       const { data, error } = await supabase
         .from('profiles')
         .select('role')
