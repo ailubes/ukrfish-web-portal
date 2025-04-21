@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -85,7 +84,17 @@ const CMSPage = () => {
     if (isAdmin && user) {
       // Check and ensure RLS policies exist
       console.log("Admin confirmed, ensuring RLS policies...");
-      ensureNewsArticlesRLSPolicies()
+      
+      // First verify admin status one more time to be sure
+      checkAdminStatus()
+        .then(adminStatus => {
+          if (adminStatus) {
+            return ensureNewsArticlesRLSPolicies();
+          } else {
+            console.warn("Admin status verification failed");
+            return Promise.reject("Not admin");
+          }
+        })
         .then(() => {
           console.log("RLS policy check completed");
           
@@ -95,13 +104,25 @@ const CMSPage = () => {
         .then(({ error }) => {
           if (error) {
             console.error("Test read after policy check failed:", error);
+            toast({
+              title: "Помилка доступу",
+              description: "Перевірте налаштування RLS у Supabase для таблиці news_articles",
+              variant: "destructive",
+            });
           } else {
             console.log("Test read successful, policies appear to be working");
           }
         })
-        .catch(error => console.error("Failed to check or test RLS policies:", error));
+        .catch(error => {
+          console.error("Failed to check or test RLS policies:", error);
+          toast({
+            title: "Помилка перевірки доступу",
+            description: "Не вдалося перевірити налаштування RLS",
+            variant: "destructive",
+          });
+        });
     }
-  }, [isAdmin, user]);
+  }, [isAdmin, user, checkAdminStatus, toast]);
 
   const handleArticleSave = useCallback(() => {
     localStorage.removeItem('article-draft-v4');

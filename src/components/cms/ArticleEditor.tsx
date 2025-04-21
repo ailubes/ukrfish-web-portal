@@ -263,6 +263,11 @@ const ArticleEditor = ({
         publishDate = new Date().toISOString();
       }
       
+      const isStillAdmin = await checkAdminStatus();
+      if (!isStillAdmin) {
+        throw new Error("Admin privileges are required to save articles");
+      }
+
       const articleData = {
         id: articleId,
         title: article.title,
@@ -283,12 +288,6 @@ const ArticleEditor = ({
 
       if (error) {
         console.error("Error saving article:", error);
-        
-        if (error.code === '42501' || error.message.includes('policy')) {
-          console.error("This appears to be a Row Level Security policy error. Check RLS policies for news_articles table.");
-          throw new Error(`Помилка доступу: ${error.message}. Перевірте RLS політики для таблиці news_articles.`);
-        }
-        
         throw error;
       }
 
@@ -514,8 +513,8 @@ const ArticleEditor = ({
       };
       
       editorRef.current.addEventListener('focus', handleFocus);
-      
-      editorRef.current.setAttribute('dir', 'ltr');
+      editorRef.current.style.direction = 'ltr'; // Explicitly set direction to left-to-right
+      editorRef.current.setAttribute('dir', 'ltr'); // Also set HTML dir attribute
       
       return () => {
         editorRef.current?.removeEventListener('focus', handleFocus);
@@ -717,6 +716,7 @@ const ArticleEditor = ({
                     onPaste={handlePaste}
                     onBlur={handleKeyUp}
                     dir="ltr"
+                    style={{ direction: 'ltr', textAlign: 'left' }}
                   />
                 </div>
               </TabsContent>

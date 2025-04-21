@@ -3,15 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { NewsArticle } from "@/types";
 
 /**
- * Creates RLS policies for news_articles table if they don't exist
- * This function should be called once during application initialization
+ * Tests access to the news_articles table with a simple read operation
+ * This is safer than trying to insert/delete test articles
  */
 export const ensureNewsArticlesRLSPolicies = async (): Promise<void> => {
   try {
-    // Check if user is admin before attempting to create policies
+    // Check if user is admin before attempting to test access
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      console.log("No authenticated session found, skipping RLS policy check");
+      console.log("No authenticated session found, skipping access check");
       return;
     }
     
@@ -23,36 +23,27 @@ export const ensureNewsArticlesRLSPolicies = async (): Promise<void> => {
       .single();
     
     if (profileError || profile?.role !== 'admin') {
-      console.log("User is not admin, skipping RLS policy check");
+      console.log("User is not admin, skipping access check");
       return;
     }
     
     console.log("Admin user detected, checking news_articles table access");
     
-    // Try to insert a test article (will be deleted immediately)
-    // This will help us determine if the RLS policies are working correctly
-    const testArticleId = 'test-article-' + Date.now();
-    const { error: insertError } = await supabase
+    // Simply try to read from the table instead of inserting test records
+    const { data, error } = await supabase
       .from('news_articles')
-      .insert({
-        id: testArticleId,
-        title: 'Test Article',
-        content: 'Test content',
-        summary: 'Test summary'
-      });
+      .select('id')
+      .limit(1);
     
-    // If insertion failed due to policy issue, log it
-    if (insertError) {
-      console.error("Failed to insert test article:", insertError);
+    if (error) {
+      console.error("Failed to read from news_articles table:", error);
       console.warn("You might need to add RLS policies for the news_articles table in Supabase");
       console.warn("Make sure admin users have full access to the news_articles table");
     } else {
-      // Clean up test article
-      await supabase.from('news_articles').delete().eq('id', testArticleId);
-      console.log("RLS policies for news_articles are correctly configured");
+      console.log("Access to news_articles table confirmed");
     }
   } catch (error) {
-    console.error("Error checking RLS policies:", error);
+    console.error("Error checking access:", error);
   }
 };
 
