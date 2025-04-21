@@ -15,7 +15,7 @@ export const ensureNewsArticlesRLSPolicies = async (): Promise<void> => {
       return;
     }
     
-    // Try to read profile data to check admin status
+    // Try to read profile data to check admin status - ONLY use profiles table
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')

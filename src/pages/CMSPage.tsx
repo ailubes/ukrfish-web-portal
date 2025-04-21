@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -10,6 +11,7 @@ import { Users, LayoutDashboard, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { NewsArticle } from "@/types";
 import { ensureNewsArticlesRLSPolicies } from "@/utils/articleUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 const CMSPage = () => {
   const { isAdmin, user, loading, checkAdminStatus } = useAuth();
@@ -44,6 +46,7 @@ const CMSPage = () => {
               navigate("/login");
             }
           } else {
+            // Use checkAdminStatus from the useAuth hook to verify admin status
             const adminStatus = await checkAdminStatus();
             console.log("Admin status check result:", adminStatus);
             
@@ -77,10 +80,26 @@ const CMSPage = () => {
     };
   }, [loading, user, isAdmin, navigate, toast, accessChecked, checkAdminStatus]);
 
+  // Make sure we have the proper RLS policies when the admin user is confirmed
   useEffect(() => {
     if (isAdmin && user) {
+      // Check and ensure RLS policies exist
+      console.log("Admin confirmed, ensuring RLS policies...");
       ensureNewsArticlesRLSPolicies()
-        .catch(error => console.error("Failed to check RLS policies:", error));
+        .then(() => {
+          console.log("RLS policy check completed");
+          
+          // After ensuring policies, test with a simple read operation
+          return supabase.from('news_articles').select('id').limit(1);
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error("Test read after policy check failed:", error);
+          } else {
+            console.log("Test read successful, policies appear to be working");
+          }
+        })
+        .catch(error => console.error("Failed to check or test RLS policies:", error));
     }
   }, [isAdmin, user]);
 

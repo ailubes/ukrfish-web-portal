@@ -40,7 +40,6 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-// CSS styles for the editor preview
 const editorStyles = `
   .editor-preview h1 {
     font-size: 2em;
@@ -276,9 +275,8 @@ const ArticleEditor = ({
         tags: formattedTags
       };
 
-      console.log("Saving article:", articleData);
+      console.log("Saving article with data:", articleData);
       
-      // Important: Ensure we're only using the news_articles table
       const { error } = await supabase
         .from('news_articles')
         .upsert(articleData, { onConflict: 'id' });
@@ -308,8 +306,6 @@ const ArticleEditor = ({
           author: article.author || "Адміністратор",
           tags: formattedTags,
         };
-        
-        localStorage.removeItem(draftStorageKey);
         
         setTimeout(() => {
           onSave(savedArticle);
@@ -349,9 +345,6 @@ const ArticleEditor = ({
       setIsSubmitting(false);
     }
   };
-
-  // Use hook's checkAdminStatus instead of reimplementing it
-  // const { checkAdminStatus } = useAuth(); // Already destructured above
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -488,7 +481,6 @@ const ArticleEditor = ({
     }
   };
   
-  // Fix for the text field to prevent reverse typing in the editor
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const text = e.clipboardData.getData('text/plain');
@@ -523,7 +515,6 @@ const ArticleEditor = ({
       
       editorRef.current.addEventListener('focus', handleFocus);
       
-      // Set dir attribute to prevent RTL text input issues
       editorRef.current.setAttribute('dir', 'ltr');
       
       return () => {
@@ -589,7 +580,7 @@ const ArticleEditor = ({
                   <SelectValue placeholder="Виберіть категорію" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Загальні новини">Загальні новини</SelectItem>
+                  <SelectItem value="Загальні новини">Заг��льні новини</SelectItem>
                   <SelectItem value="Новини галузі">Новини галузі</SelectItem>
                   <SelectItem value="Законодавство">Законодавство</SelectItem>
                   <SelectItem value="Міжнародна співпраця">Міжнародна співпраця</SelectItem>
@@ -725,6 +716,7 @@ const ArticleEditor = ({
                     onKeyUp={handleKeyUp}
                     onPaste={handlePaste}
                     onBlur={handleKeyUp}
+                    dir="ltr"
                   />
                 </div>
               </TabsContent>
