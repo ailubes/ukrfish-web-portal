@@ -197,6 +197,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      upsert_article: {
+        Args: { article_data: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

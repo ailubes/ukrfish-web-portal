@@ -1,0 +1,211 @@
+
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Реєстрація - ГС "Риба України"</title>
+    <meta name="description" content="Реєстрація нового учасника громадської спілки 'Риба України'." />
+    <meta name="author" content="ГС Риба України" />
+
+    <!-- Google Fonts - Open Sans and Roboto for Ukrainian language support -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+  </head>
+
+  <body>
+    <div class="min-h-screen flex flex-col bg-gray-50">
+      <!-- Navbar -->
+      <header class="bg-white shadow-sm border-b">
+        <div class="container mx-auto px-4">
+          <nav class="flex flex-wrap items-center justify-between py-4">
+            <a href="index.html" class="flex items-center">
+              <img src="images/logo.png" alt="Риба України" class="h-10 mr-3">
+              <div>
+                <span class="font-bold text-xl text-blue-primary">Риба України</span>
+                <p class="text-xs text-gray-text">Громадська спілка</p>
+              </div>
+            </a>
+            
+            <div class="flex items-center lg:hidden">
+              <button id="mobile-menu-button" class="p-2 rounded-md text-gray-text hover:bg-gray-100">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-menu"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+              </button>
+            </div>
+            
+            <div id="navbar-menu" class="hidden lg:flex flex-col lg:flex-row w-full lg:w-auto mt-4 lg:mt-0">
+              <div class="flex flex-col lg:flex-row lg:items-center lg:space-x-1">
+                <a href="index.html" class="nav-link">Головна</a>
+                <a href="news.html" class="nav-link">Новини</a>
+                <a href="members.html" class="nav-link">Учасники</a>
+                <a href="about.html" class="nav-link">Про нас</a>
+                <a href="contacts.html" class="nav-link">Контакти</a>
+              </div>
+              
+              <div class="flex flex-col lg:flex-row mt-4 lg:mt-0 lg:ml-4">
+                <a href="login.html" class="btn-outline mb-2 lg:mb-0 lg:mr-2">
+                  Вхід
+                </a>
+                <a href="register.html" class="btn-primary active">
+                  Реєстрація
+                </a>
+              </div>
+            </div>
+          </nav>
+        </div>
+      </header>
+
+      <main class="flex-grow flex items-center justify-center py-12 px-4">
+        <div class="w-full max-w-lg">
+          <div class="bg-white rounded-lg shadow-md p-8">
+            <div class="text-center mb-8">
+              <h1 class="text-2xl font-bold">Реєстрація нового учасника</h1>
+              <p class="text-gray-text mt-2">Заповніть форму для створення облікового запису</p>
+            </div>
+            
+            <form class="space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label for="firstName" class="block text-sm font-medium text-gray-700 mb-1">Ім'я</label>
+                  <input 
+                    type="text" 
+                    id="firstName" 
+                    name="firstName" 
+                    placeholder="Ваше ім'я" 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-primary focus:border-blue-primary"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label for="lastName" class="block text-sm font-medium text-gray-700 mb-1">Прізвище</label>
+                  <input 
+                    type="text" 
+                    id="lastName" 
+                    name="lastName" 
+                    placeholder="Ваше прізвище" 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-primary focus:border-blue-primary"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input 
+                  type="email" 
+                  id="email" 
+                  name="email" 
+                  placeholder="ваш@email.com" 
+                  class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-primary focus:border-blue-primary"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                <input 
+                  type="tel" 
+                  id="phone" 
+                  name="phone" 
+                  placeholder="+380 XX XXX XX XX" 
+                  class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-primary focus:border-blue-primary"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label for="company" class="block text-sm font-medium text-gray-700 mb-1">Компанія / Організація</label>
+                <input 
+                  type="text" 
+                  id="company" 
+                  name="company" 
+                  placeholder="Назва вашої компанії" 
+                  class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-primary focus:border-blue-primary"
+                />
+              </div>
+              
+              <div>
+                <label for="membership" class="block text-sm font-medium text-gray-700 mb-1">Тип членства</label>
+                <select 
+                  id="membership" 
+                  name="membership" 
+                  class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-primary focus:border-blue-primary"
+                  required
+                >
+                  <option value="" selected disabled>Оберіть тип членства</option>
+                  <option value="free">Базовий (Безкоштовно)</option>
+                  <option value="standard">Стандарт (5000 ₴/рік)</option>
+                  <option value="premium">Преміум (12000 ₴/рік)</option>
+                </select>
+              </div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Пароль</label>
+                  <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    placeholder="••••••••" 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-primary focus:border-blue-primary"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1">Підтвердження пароля</label>
+                  <input 
+                    type="password" 
+                    id="confirmPassword" 
+                    name="confirmPassword" 
+                    placeholder="••••••••" 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-primary focus:border-blue-primary"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div class="flex items-start">
+                <input type="checkbox" id="terms" name="terms" class="h-4 w-4 border-gray-300 rounded mt-1" required>
+                <label for="terms" class="ml-2 text-sm text-gray-600">
+                  Я погоджуюся з <a href="#" class="text-blue-primary hover:text-blue-700">Умовами використання</a> та <a href="#" class="text-blue-primary hover:text-blue-700">Політикою конфіденційності</a>
+                </label>
+              </div>
+              
+              <button type="submit" class="w-full btn-primary py-2">
+                Зареєструватися
+              </button>
+              
+              <div class="text-center mt-4">
+                <p class="text-sm text-gray-600">
+                  Вже маєте обліковий запис? 
+                  <a href="login.html" class="text-blue-primary hover:text-blue-700">
+                    Увійти
+                  </a>
+                </p>
+              </div>
+            </form>
+          </div>
+        </div>
+      </main>
+
+      <footer class="bg-white border-t py-6">
+        <div class="container mx-auto px-4 text-center">
+          <p class="text-gray-600">© 2023 ГС "Риба України". Всі права захищено.</p>
+          <div class="flex justify-center space-x-4 mt-2">
+            <a href="#" class="text-gray-500 hover:text-gray-700">Умови використання</a>
+            <a href="#" class="text-gray-500 hover:text-gray-700">Політика конфіденційності</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
+    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>
